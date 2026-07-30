@@ -204,11 +204,26 @@ def make_prompt(
 st.markdown(
     """
     <style>
+    :root {
+        --text-main: #2f3542;
+        --text-sub: #5f6572;
+        --pink: #e75480;
+        --pink-deep: #cf3f72;
+        --lavender: #7b70d6;
+        --border: #efc2d4;
+        --card: rgba(255, 255, 255, 0.96);
+        --soft-yellow: #fff6d6;
+    }
+
+    html, body, .stApp {
+        color: var(--text-main) !important;
+    }
+
     .stApp {
         background:
-            radial-gradient(circle at 15% 15%, rgba(255, 205, 225, 0.65), transparent 30%),
-            radial-gradient(circle at 85% 10%, rgba(205, 220, 255, 0.65), transparent 30%),
-            linear-gradient(180deg, #fff9fc 0%, #f9fbff 100%);
+            radial-gradient(circle at 12% 10%, rgba(255, 203, 224, 0.72), transparent 28%),
+            radial-gradient(circle at 88% 8%, rgba(210, 211, 255, 0.70), transparent 28%),
+            linear-gradient(180deg, #fff9fc 0%, #fff2f8 55%, #f8f7ff 100%);
     }
 
     .block-container {
@@ -217,74 +232,260 @@ st.markdown(
         padding-bottom: 4rem;
     }
 
+    h1, h2, h3, h4, h5, h6 {
+        color: #6a3e56 !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.025em;
+    }
+
+    p, label, li {
+        color: var(--text-main) !important;
+    }
+
     .hero {
+        position: relative;
+        overflow: hidden;
         text-align: center;
-        padding: 2.2rem 1.2rem;
+        padding: 2.5rem 1.3rem;
         border-radius: 30px;
-        background: rgba(255, 255, 255, 0.82);
-        border: 2px solid rgba(255, 164, 202, 0.48);
-        box-shadow: 0 14px 40px rgba(184, 116, 160, 0.15);
-        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(255,247,252,0.97));
+        border: 2px solid #f2bad0;
+        box-shadow: 0 16px 42px rgba(172, 92, 139, 0.16);
+        margin-bottom: 1.6rem;
+    }
+
+    .hero::before,
+    .hero::after {
+        content: "♪";
+        position: absolute;
+        font-size: 2.4rem;
+        color: rgba(231, 84, 128, 0.22);
+        animation: floatNote 4s ease-in-out infinite;
+    }
+
+    .hero::before {
+        top: 18px;
+        left: 28px;
+    }
+
+    .hero::after {
+        content: "♫";
+        right: 30px;
+        bottom: 18px;
+        animation-delay: 1.2s;
+    }
+
+    @keyframes floatNote {
+        0%, 100% { transform: translateY(0) rotate(-5deg); }
+        50% { transform: translateY(-10px) rotate(7deg); }
     }
 
     .hero-title {
-        font-size: clamp(2rem, 6vw, 3.5rem);
-        font-weight: 900;
-        color: #ff5c9e;
-        letter-spacing: -0.04em;
+        color: var(--pink-deep) !important;
+        font-size: clamp(2.05rem, 6vw, 3.45rem);
+        font-weight: 950;
+        letter-spacing: -0.045em;
+        text-shadow: 0 2px 0 rgba(255,255,255,0.8);
     }
 
     .hero-subtitle {
-        color: #6f6070;
-        line-height: 1.7;
-        margin-top: 0.6rem;
-    }
-
-    .section-card {
-        background: rgba(255, 255, 255, 0.88);
-        border: 1.5px solid #ffd2e2;
-        border-radius: 24px;
-        padding: 1.3rem;
-        margin: 1rem 0;
-        box-shadow: 0 8px 26px rgba(171, 116, 151, 0.08);
-    }
-
-    div[data-testid="stTextInput"] input,
-    div[data-testid="stTextArea"] textarea,
-    div[data-baseweb="select"] > div {
-        border-radius: 14px;
-        border-color: #ffc4da;
-    }
-
-    .stButton > button {
-        width: 100%;
-        border: none;
-        border-radius: 16px;
-        padding: 0.85rem 1rem;
-        color: white;
-        font-size: 1.05rem;
-        font-weight: 900;
-        background: linear-gradient(90deg, #ff6fa8, #9a82f5);
-        box-shadow: 0 9px 24px rgba(191, 99, 159, 0.23);
-    }
-
-    .stButton > button:hover {
-        transform: translateY(-1px);
-        color: white;
-        border: none;
+        color: #5b4f59 !important;
+        line-height: 1.75;
+        margin-top: 0.7rem;
+        font-size: 1.02rem;
+        font-weight: 650;
     }
 
     .tip {
-        background: #fff7d8;
-        border: 1px dashed #eabb4f;
-        color: #70571d;
-        padding: 0.9rem 1rem;
-        border-radius: 16px;
-        line-height: 1.6;
+        background: var(--soft-yellow);
+        border: 1.5px dashed #d8aa36;
+        color: #5e4812 !important;
+        padding: 1rem 1.1rem;
+        border-radius: 17px;
+        line-height: 1.65;
+        font-weight: 650;
+        box-shadow: 0 6px 18px rgba(167, 129, 38, 0.08);
     }
 
-    h1, h2, h3 {
-        color: #5b4855;
+    .tip * {
+        color: #5e4812 !important;
+    }
+
+    /* 입력창 및 텍스트 영역 */
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea {
+        background: #ffffff !important;
+        color: #20242d !important;
+        border: 2px solid var(--border) !important;
+        border-radius: 15px !important;
+        caret-color: var(--pink-deep) !important;
+        box-shadow: 0 3px 10px rgba(123, 75, 101, 0.06);
+    }
+
+    div[data-testid="stTextInput"] input:focus,
+    div[data-testid="stTextArea"] textarea:focus {
+        border-color: #df6f9b !important;
+        box-shadow: 0 0 0 0.15rem rgba(223, 111, 155, 0.15) !important;
+    }
+
+    div[data-testid="stTextInput"] input::placeholder,
+    div[data-testid="stTextArea"] textarea::placeholder {
+        color: #8b8f99 !important;
+        opacity: 1 !important;
+    }
+
+    /* selectbox */
+    div[data-baseweb="select"] > div {
+        background: #ffffff !important;
+        color: #20242d !important;
+        border: 2px solid var(--border) !important;
+        border-radius: 15px !important;
+        box-shadow: 0 3px 10px rgba(123, 75, 101, 0.06);
+    }
+
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] div {
+        color: #20242d !important;
+    }
+
+    ul[role="listbox"] {
+        background: #ffffff !important;
+    }
+
+    ul[role="listbox"] li,
+    div[role="option"] {
+        background: #ffffff !important;
+        color: #20242d !important;
+    }
+
+    div[role="option"]:hover {
+        background: #fff0f6 !important;
+    }
+
+    /* 숫자/슬라이더 */
+    div[data-testid="stSlider"] * {
+        color: #2f3542 !important;
+    }
+
+    div[data-baseweb="slider"] div[role="slider"] {
+        background: var(--pink-deep) !important;
+        border-color: var(--pink-deep) !important;
+    }
+
+    /* 체크박스 */
+    div[data-testid="stCheckbox"] label,
+    div[data-testid="stCheckbox"] span {
+        color: #2f3542 !important;
+        font-weight: 650;
+    }
+
+    /* 일반 버튼 */
+    .stButton > button {
+        width: 100%;
+        border: none !important;
+        border-radius: 16px !important;
+        padding: 0.9rem 1rem !important;
+        color: #ffffff !important;
+        font-size: 1.07rem !important;
+        font-weight: 900 !important;
+        background: linear-gradient(90deg, #e95d91, #8175df) !important;
+        box-shadow: 0 10px 24px rgba(159, 81, 145, 0.24) !important;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        color: #ffffff !important;
+        box-shadow: 0 13px 28px rgba(159, 81, 145, 0.30) !important;
+    }
+
+    .stButton > button * {
+        color: #ffffff !important;
+    }
+
+    /* 다운로드 버튼 */
+    .stDownloadButton > button {
+        width: 100%;
+        border: none !important;
+        border-radius: 15px !important;
+        background: linear-gradient(90deg, #6f67cf, #5b87d9) !important;
+        color: #ffffff !important;
+        font-weight: 850 !important;
+        box-shadow: 0 8px 20px rgba(79, 91, 170, 0.20);
+    }
+
+    .stDownloadButton > button:hover {
+        color: #ffffff !important;
+        transform: translateY(-1px);
+    }
+
+    .stDownloadButton > button * {
+        color: #ffffff !important;
+    }
+
+    /* 성공/경고 메시지 */
+    div[data-testid="stAlert"] {
+        border-radius: 16px !important;
+        border: 1px solid #d8b548 !important;
+        background: #fff8d9 !important;
+    }
+
+    div[data-testid="stAlert"] * {
+        color: #554314 !important;
+        font-weight: 650;
+    }
+
+    /* 결과 텍스트 영역 */
+    div[data-testid="stTextArea"] textarea {
+        line-height: 1.6 !important;
+        font-size: 0.95rem !important;
+    }
+
+    /* 캡션 및 도움말 */
+    div[data-testid="stCaptionContainer"],
+    div[data-testid="InputInstructions"] {
+        color: #616773 !important;
+    }
+
+    /* expander 및 기타 박스 */
+    details {
+        background: rgba(255, 255, 255, 0.92) !important;
+        border: 1px solid #eac6d7 !important;
+        border-radius: 15px !important;
+    }
+
+    /* 사이드바가 생길 경우 */
+    section[data-testid="stSidebar"] {
+        background: #fff5fa !important;
+    }
+
+    section[data-testid="stSidebar"] * {
+        color: #2f3542 !important;
+    }
+
+    /* 하단 안내 문구 */
+    .footer-note {
+        text-align: center;
+        color: #665d67 !important;
+        font-size: 0.88rem;
+        line-height: 1.65;
+        margin-top: 2rem;
+        font-weight: 600;
+    }
+
+    @media (max-width: 640px) {
+        .block-container {
+            padding-top: 1rem;
+        }
+
+        .hero {
+            padding: 2rem 1rem;
+            border-radius: 24px;
+        }
+
+        .hero-title {
+            font-size: 2.15rem;
+        }
     }
     </style>
     """,
@@ -435,7 +636,7 @@ if generate:
 
 st.markdown(
     """
-    <div style="text-align:center; color:#8a7681; font-size:0.88rem; line-height:1.6; margin-top:2rem;">
+    <div class="footer-note">
         생성형 AI의 결과는 도구마다 달라질 수 있어요.<br>
         특정 가수나 기존 노래를 그대로 모방하기보다 나만의 이야기와 분위기를 만들어 보세요.
     </div>
