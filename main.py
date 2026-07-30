@@ -1,6 +1,4 @@
-from pathlib import Path
-
-app_code = r'''import streamlit as st
+import streamlit as st
 
 # -------------------------------------------------
 # 기본 설정
@@ -460,4 +458,3 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-'''
