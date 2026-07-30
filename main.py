@@ -1,4 +1,3 @@
-import streamlit as st
 from pathlib import Path
 
 app_code = r'''import streamlit as st
