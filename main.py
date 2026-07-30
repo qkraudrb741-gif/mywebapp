@@ -460,34 +460,3 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-'''
-
-readme = r'''# 콩닥콩닥 MBTI 직업 추천소
-
-Streamlit 기본 기능만 사용한 MBTI 직업 추천 웹앱입니다.
-
-## Streamlit Community Cloud 배포 방법
-
-1. GitHub에 새 저장소를 만듭니다.
-2. 이 폴더의 `app.py` 파일을 저장소에 올립니다.
-3. Streamlit Community Cloud에서 새 앱을 생성합니다.
-4. Repository와 Branch를 선택합니다.
-5. Main file path에 `app.py`를 입력하고 배포합니다.
-
-별도의 외부 라이브러리를 사용하지 않으므로 추가 패키지 파일이 필요하지 않습니다.
-'''
-
-out_dir = Path("/mnt/data/mbti_career_app")
-out_dir.mkdir(parents=True, exist_ok=True)
-(out_dir / "app.py").write_text(app_code, encoding="utf-8")
-(out_dir / "README.md").write_text(readme, encoding="utf-8")
-
-# zip 파일도 함께 생성
-import zipfile
-zip_path = Path("/mnt/data/mbti_career_app.zip")
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-    zf.write(out_dir / "app.py", arcname="app.py")
-    zf.write(out_dir / "README.md", arcname="README.md")
-
-print(f"Created: {out_dir / 'app.py'}")
-print(f"Created: {zip_path}")
