@@ -1,8 +1,4 @@
-from pathlib import Path
-import py_compile
-import zipfile
-
-code = r'''import io
+import io
 import json
 import re
 
@@ -680,21 +676,3 @@ except (
         "원본 CSV의 열 이름이나 GeoJSON 속성을 확인해 주세요."
     )
     st.exception(error)
-'''
-
-output_dir = Path("/mnt/data/korea_ageing_map_app")
-output_dir.mkdir(parents=True, exist_ok=True)
-
-main_path = output_dir / "main.py"
-main_path.write_text(code, encoding="utf-8")
-
-# 문법 검사
-py_compile.compile(str(main_path), doraise=True)
-
-zip_path = Path("/mnt/data/korea_ageing_map_app.zip")
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-    archive.write(main_path, arcname="main.py")
-
-print("문법 검사 통과")
-print(main_path)
-print(zip_path)
