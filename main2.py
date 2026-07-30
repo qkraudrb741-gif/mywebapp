@@ -1,490 +1,453 @@
 import streamlit as st
 
+
+# =========================================================
+# 1. 페이지 설정
+# =========================================================
 st.set_page_config(
-    page_title="멜로디 프롬프트 공방",
+    page_title="Suno 음악 프롬프트 생성기",
     page_icon="🎵",
-    layout="centered",
+    layout="wide",
 )
 
-GENRE_GUIDES = {
-    "K-POP": {
-        "tempo": "중간 템포 또는 빠른 템포",
-        "instruments": "신스, 전자 드럼, 베이스, 피아노",
-        "structure": "Intro - Verse - Pre-Chorus - Chorus - Verse - Chorus - Bridge - Final Chorus",
-    },
-    "발라드": {
-        "tempo": "느리거나 중간 정도의 템포",
-        "instruments": "피아노, 스트링, 어쿠스틱 기타, 부드러운 드럼",
-        "structure": "Intro - Verse - Chorus - Verse - Chorus - Bridge - Final Chorus - Outro",
-    },
-    "힙합": {
-        "tempo": "중간 템포의 그루브",
-        "instruments": "808 베이스, 킥, 스네어, 하이햇, 신스",
-        "structure": "Intro - Verse - Hook - Verse - Hook - Bridge - Final Hook",
-    },
-    "R&B": {
-        "tempo": "느긋한 중간 템포",
-        "instruments": "일렉트릭 피아노, 부드러운 베이스, 드럼, 패드 신스",
-        "structure": "Intro - Verse - Pre-Chorus - Chorus - Verse - Chorus - Bridge - Outro",
-    },
-    "록": {
-        "tempo": "중간 또는 빠른 템포",
-        "instruments": "일렉트릭 기타, 베이스 기타, 드럼, 필요 시 신스",
-        "structure": "Intro - Verse - Chorus - Verse - Chorus - Guitar Break - Final Chorus",
-    },
-    "인디 팝": {
-        "tempo": "편안한 중간 템포",
-        "instruments": "어쿠스틱 기타, 피아노, 가벼운 드럼, 따뜻한 신스",
-        "structure": "Intro - Verse - Chorus - Verse - Chorus - Bridge - Outro",
-    },
-    "EDM": {
-        "tempo": "빠른 템포",
-        "instruments": "신스 리드, 서브 베이스, 전자 드럼, 효과음",
-        "structure": "Intro - Build Up - Drop - Break - Build Up - Final Drop - Outro",
-    },
-    "재즈": {
-        "tempo": "스윙감 있는 중간 템포",
-        "instruments": "피아노, 콘트라베이스, 드럼, 색소폰 또는 트럼펫",
-        "structure": "Intro - Theme - Verse - Instrumental Solo - Theme - Outro",
-    },
-    "어쿠스틱": {
-        "tempo": "편안한 느린 템포 또는 중간 템포",
-        "instruments": "어쿠스틱 기타, 피아노, 가벼운 퍼커션",
-        "structure": "Intro - Verse - Chorus - Verse - Chorus - Bridge - Outro",
-    },
-    "시티 팝": {
-        "tempo": "경쾌한 중간 템포",
-        "instruments": "신스, 일렉트릭 피아노, 펑키한 베이스, 전자 드럼",
-        "structure": "Intro - Verse - Pre-Chorus - Chorus - Verse - Chorus - Bridge - Final Chorus",
-    },
+
+# =========================================================
+# 2. 선택 항목
+# =========================================================
+GENRES = {
+    "K-POP": "modern K-pop",
+    "발라드": "emotional pop ballad",
+    "힙합": "modern hip-hop",
+    "R&B": "contemporary R&B",
+    "록": "modern rock",
+    "인디 팝": "indie pop",
+    "시티 팝": "retro city pop",
+    "EDM": "electronic dance music",
+    "재즈": "modern jazz",
+    "어쿠스틱 팝": "acoustic pop",
+    "포크": "folk pop",
+    "펑크 록": "pop punk",
+    "메탈": "modern metal",
+    "트로트": "Korean trot",
+    "로파이": "lo-fi chill",
+    "영화 OST": "cinematic soundtrack",
+    "애니메이션 OST": "anime-inspired soundtrack",
+    "게임 BGM": "video game soundtrack",
 }
 
-MOOD_DETAILS = {
-    "밝고 신나는": "밝은 장조 중심, 경쾌한 리듬, 기억하기 쉬운 후렴구",
-    "따뜻하고 포근한": "부드러운 화성, 따뜻한 음색, 편안한 멜로디",
-    "감성적이고 아련한": "서정적인 멜로디, 여운이 남는 코드 진행, 섬세한 감정 변화",
-    "몽환적인": "공간감 있는 신스와 리버브, 반복적이고 신비로운 멜로디",
-    "강렬하고 웅장한": "힘 있는 리듬, 넓은 음역, 점진적으로 고조되는 편곡",
-    "차분하고 편안한": "단순하고 안정적인 리듬, 낮은 강도의 악기 구성",
-    "슬프고 애절한": "단조 중심, 점차 높아지는 감정선, 호소력 있는 후렴구",
-    "청량하고 희망찬": "맑은 음색, 상승하는 멜로디, 긍정적인 후렴구",
-    "긴장감 있고 어두운": "낮은 음역, 불안정한 화성, 묵직한 베이스와 리듬",
-    "귀엽고 사랑스러운": "통통 튀는 리듬, 밝은 악기 음색, 짧고 반복적인 훅",
+MOODS = {
+    "밝고 신나는": "bright, energetic, uplifting",
+    "따뜻하고 포근한": "warm, gentle, comforting",
+    "감성적이고 아련한": "emotional, nostalgic, bittersweet",
+    "몽환적인": "dreamy, ethereal, atmospheric",
+    "강렬하고 웅장한": "powerful, epic, dramatic",
+    "차분하고 편안한": "calm, peaceful, relaxing",
+    "슬프고 애절한": "sad, heartfelt, deeply emotional",
+    "청량하고 희망찬": "refreshing, hopeful, youthful",
+    "긴장감 있고 어두운": "dark, tense, mysterious",
+    "귀엽고 사랑스러운": "cute, playful, lovely",
+    "세련되고 도시적인": "stylish, sleek, urban",
+    "자유롭고 반항적인": "free-spirited, rebellious, bold",
 }
 
-LANGUAGE_GUIDES = {
-    "한국어": "가사는 자연스러운 한국어로 작성하고, 발음하기 쉬운 문장과 기억하기 쉬운 후렴구를 사용한다.",
-    "영어": "가사는 자연스러운 영어로 작성하고, 짧고 리듬감 있는 문장과 반복 가능한 훅을 사용한다.",
-    "한국어 중심 + 영어 포인트": "가사는 한국어를 중심으로 작성하되, 후렴구나 핵심 표현에 짧은 영어 문구를 자연스럽게 넣는다.",
-    "연주곡": "보컬과 가사 없이 악기만으로 감정과 장면을 표현한다.",
+TEMPOS = {
+    "매우 느리게 (50~65 BPM)": "very slow tempo, around 50-65 BPM",
+    "느리게 (66~80 BPM)": "slow tempo, around 66-80 BPM",
+    "보통 (81~105 BPM)": "mid-tempo, around 81-105 BPM",
+    "경쾌하게 (106~125 BPM)": "upbeat tempo, around 106-125 BPM",
+    "빠르게 (126~145 BPM)": "fast tempo, around 126-145 BPM",
+    "매우 빠르게 (146 BPM 이상)": "very fast tempo, above 146 BPM",
 }
 
+VOCALS = {
+    "맑고 청량한 여성 보컬": "clear and refreshing female vocal",
+    "따뜻하고 부드러운 여성 보컬": "warm and gentle female vocal",
+    "힘 있고 시원한 여성 보컬": "powerful and soaring female vocal",
+    "몽환적인 여성 보컬": "dreamy and airy female vocal",
+    "맑고 청량한 남성 보컬": "clear and refreshing male vocal",
+    "따뜻하고 부드러운 남성 보컬": "warm and gentle male vocal",
+    "힘 있고 깊은 남성 보컬": "powerful and deep male vocal",
+    "감성적인 남성 보컬": "emotional male vocal",
+    "남녀 듀엣": "male and female duet vocals",
+    "그룹 보컬": "layered group vocals",
+    "랩 중심": "rhythmic rap-focused vocal",
+    "보컬 없는 연주곡": "instrumental, no vocals",
+}
 
-def clean_text(value, fallback):
-    value = value.strip()
-    return value if value else fallback
+INSTRUMENTS = {
+    "피아노": "piano",
+    "어쿠스틱 기타": "acoustic guitar",
+    "일렉트릭 기타": "electric guitar",
+    "베이스 기타": "bass guitar",
+    "드럼": "live drums",
+    "전자 드럼": "electronic drums",
+    "스트링": "cinematic strings",
+    "신시사이저": "synthesizers",
+    "브라스": "brass section",
+    "색소폰": "saxophone",
+    "플루트": "flute",
+    "808 베이스": "808 bass",
+    "오케스트라": "full orchestra",
+    "국악기": "Korean traditional instruments",
+}
+
+STRUCTURES = {
+    "대중적인 구성": (
+        "intro, verse, pre-chorus, chorus, verse, chorus, "
+        "bridge, final chorus, outro"
+    ),
+    "후렴 중심 구성": (
+        "short intro, verse, pre-chorus, big chorus, verse, "
+        "chorus, bridge, repeated final chorus"
+    ),
+    "서사적인 구성": (
+        "atmospheric intro, verse, gradual build, chorus, "
+        "second verse, dramatic bridge, climactic final chorus, outro"
+    ),
+    "짧고 강한 구성": (
+        "short intro, verse, chorus, verse, chorus, brief bridge, final chorus"
+    ),
+    "랩 중심 구성": (
+        "intro, rap verse, hook, rap verse, hook, bridge, final hook"
+    ),
+    "연주곡 구성": (
+        "intro, theme A, development, theme B, climax, reprise, outro"
+    ),
+}
+
+LANGUAGES = [
+    "한국어",
+    "한국어 중심 + 영어 포인트",
+    "영어",
+    "가사 없는 연주곡",
+]
 
 
-def make_prompt(
-    concept,
-    mood,
-    genre,
-    language,
-    vocal,
-    tempo,
-    keywords,
-    story,
-    audience,
-    duration,
-    include_lyrics,
-    include_notes,
-):
-    genre_info = GENRE_GUIDES[genre]
-    mood_info = MOOD_DETAILS[mood]
-    language_info = LANGUAGE_GUIDES[language]
+# =========================================================
+# 3. 프롬프트 생성 함수
+# =========================================================
+def use_default(text: str, default: str) -> str:
+    """입력칸이 비어 있을 때 사용할 기본 문장을 반환합니다."""
+    cleaned = text.strip()
+    return cleaned if cleaned else default
 
-    concept = clean_text(concept, "새로운 시작과 설렘")
-    keywords = clean_text(keywords, "희망, 설렘, 성장")
-    story = clean_text(
-        story,
-        "주인공이 어려움을 지나 자신의 가능성을 발견하고 한 걸음 앞으로 나아가는 이야기",
-    )
-    audience = clean_text(audience, "누구나 편안하게 들을 수 있는 대중")
-    vocal_text = "보컬 없이 연주곡으로 구성" if language == "연주곡" else vocal
-    tempo_text = genre_info["tempo"] if tempo == "장르에 맞게 자동" else tempo
 
-    sections = [
-        "[역할]",
-        "당신은 대중음악 작곡가이자 작사가, 편곡가이다.",
-        "",
-        "[작곡 목표]",
-        f"'{concept}'을 핵심 콘셉트로 하는 완성도 높은 {genre} 곡을 만든다.",
-        f"곡의 전체 분위기는 '{mood}'이며, {mood_info}의 특징을 살린다.",
-        f"주요 청자는 {audience}이다.",
-        "",
-        "[음악적 설정]",
-        f"- 장르: {genre}",
-        f"- 분위기: {mood}",
-        f"- 템포: {tempo_text}",
-        f"- 보컬: {vocal_text}",
-        f"- 권장 악기: {genre_info['instruments']}",
-        f"- 권장 구성: {genre_info['structure']}",
-        f"- 예상 길이: 약 {duration}분",
-        "- 멜로디는 한 번 들으면 기억할 수 있도록 명확한 핵심 동기를 만든다.",
-        "- 후렴구는 가장 감정이 고조되며 반복해서 듣고 싶은 훅을 포함한다.",
-        "- 각 구간이 자연스럽게 연결되도록 다이내믹과 악기 수를 단계적으로 변화시킨다.",
-        "",
-        "[가사 및 이야기]",
-        f"- 핵심 이야기: {story}",
-        f"- 반드시 반영할 키워드: {keywords}",
-        f"- 언어 지침: {language_info}",
+def create_suno_prompt(
+    genre: str,
+    mood: str,
+    tempo: str,
+    vocal: str,
+    instruments: list[str],
+    structure: str,
+    concept: str,
+    production: str,
+    era: str,
+    extra_style: str,
+) -> str:
+    """Suno의 Style of Music 입력란에 사용할 영어 프롬프트를 만듭니다."""
+    parts = [
+        GENRES[genre],
+        MOODS[mood],
+        TEMPOS[tempo],
+        VOCALS[vocal],
     ]
 
-    if include_lyrics and language != "연주곡":
-        sections.extend(
-            [
-                "- 가사는 Verse, Pre-Chorus, Chorus, Bridge 구분이 드러나도록 작성한다.",
-                "- 추상적인 표현만 반복하지 말고 장면, 행동, 감정을 구체적으로 보여준다.",
-                "- 후렴구에는 곡의 핵심 메시지를 담은 짧고 인상적인 문장을 반복한다.",
-                "- 가창하기 어려운 지나치게 긴 문장은 피한다.",
-            ]
+    if instruments:
+        translated_instruments = ", ".join(
+            INSTRUMENTS[instrument] for instrument in instruments
         )
-    elif language == "연주곡":
-        sections.extend(
-            [
-                "- 가사를 작성하지 않는다.",
-                "- 멜로디와 악기 변화만으로 이야기의 시작, 전개, 고조, 마무리를 표현한다.",
-            ]
-        )
+        parts.append(f"featuring {translated_instruments}")
 
-    sections.extend(
+    parts.extend(
         [
-            "",
-            "[출력 형식]",
-            "1. 곡 제목 후보 3개",
-            "2. 곡의 핵심 콘셉트 요약",
-            "3. 장르, 분위기, 템포, 조성, 박자",
-            "4. 사용 악기와 각 악기의 역할",
-            "5. 전체 곡 구성과 구간별 분위기 변화",
+            f"song structure: {STRUCTURES[structure]}",
+            f"concept: {concept}",
+            f"production style: {production}",
+            f"era and texture: {era}",
+            "memorable melodic hook",
+            "clear emotional progression",
+            "polished and balanced mix",
+            "original composition",
         ]
     )
 
-    if include_lyrics and language != "연주곡":
-        sections.append("6. 구간 표시가 포함된 전체 가사")
-        next_number = 7
-    else:
-        next_number = 6
+    if extra_style.strip():
+        parts.append(extra_style.strip())
 
-    if include_notes:
-        sections.extend(
-            [
-                f"{next_number}. 핵심 멜로디 가이드",
-                "- 계이름 또는 음이름으로 4~8마디 분량의 메인 멜로디를 제시한다.",
-                "- 예: C4, E4, G4처럼 옥타브를 포함한 음이름을 사용한다.",
-                "- 각 음의 길이는 4분음표, 8분음표처럼 함께 표시한다.",
-                "- 추천 코드 진행을 구간별로 제시한다.",
-            ]
-        )
-        next_number += 1
-
-    sections.extend(
-        [
-            f"{next_number}. 생성형 음악 도구에 입력할 수 있는 짧은 스타일 프롬프트",
-            "",
-            "[중요 조건]",
-            "- 특정 가수나 기존 곡을 그대로 모방하지 않는다.",
-            "- 기존 노래의 가사나 멜로디를 복제하지 않고 완전히 새롭게 만든다.",
-            "- 결과물은 전체적으로 하나의 일관된 이야기와 음악적 색깔을 유지한다.",
-        ]
-    )
-
-    return "\n".join(sections)
+    return ", ".join(parts)
 
 
+def create_lyrics_prompt(
+    concept: str,
+    story: str,
+    keywords: str,
+    message: str,
+    genre: str,
+    mood: str,
+    tempo: str,
+    vocal: str,
+    structure: str,
+    language: str,
+    title_style: str,
+    rhyme: str,
+    repetition: str,
+) -> str:
+    """생성형 AI에 넣어 가사를 만들 수 있는 한국어 프롬프트를 만듭니다."""
+    if language == "가사 없는 연주곡":
+        return f"""당신은 전문 작곡가이자 편곡가입니다.
+
+다음 조건을 반영하여 Suno에서 사용할 가사 없는 연주곡 구성안을 작성해 주세요.
+
+[곡의 설정]
+- 핵심 콘셉트: {concept}
+- 이야기 또는 장면: {story}
+- 장르: {genre}
+- 분위기: {mood}
+- 템포: {tempo}
+- 핵심 메시지: {message}
+- 핵심 이미지와 키워드: {keywords}
+- 곡 구성: {structure}
+
+[작성 조건]
+1. 가사는 작성하지 않습니다.
+2. 인트로부터 아웃트로까지 구간별 장면과 감정 변화를 설명합니다.
+3. 각 구간에서 중심이 되는 악기와 멜로디의 특징을 제시합니다.
+4. 곡 전체에 반복되는 핵심 멜로디 모티프를 설명합니다.
+5. 후반부로 갈수록 감정이 자연스럽게 고조되도록 구성합니다.
+6. 특정 음악가나 기존 곡을 모방하지 않고 독창적으로 작성합니다.
+
+[출력 형식]
+1. 제목 후보 3개
+2. 곡의 한 문장 소개
+3. 구간별 구성과 분위기
+4. 핵심 멜로디 아이디어
+5. 추천 악기와 역할
+6. Suno에 넣을 수 있는 연주곡 설명 요약"""
+
+    language_rule = {
+        "한국어": "모든 가사를 자연스러운 한국어로 작성합니다.",
+        "한국어 중심 + 영어 포인트": (
+            "한국어를 중심으로 작성하되 후렴의 핵심 부분에 "
+            "짧고 기억하기 쉬운 영어 표현을 자연스럽게 넣습니다."
+        ),
+        "영어": (
+            "가사는 영어로 작성하되 제목 후보와 설명은 한국어로 작성합니다."
+        ),
+    }[language]
+
+    return f"""당신은 대중음악 전문 작사가입니다.
+아래 조건을 모두 반영하여 Suno에 입력할 수 있는 완성형 노래 가사를 작성해 주세요.
+
+[곡의 기본 설정]
+- 핵심 콘셉트: {concept}
+- 담고 싶은 이야기: {story}
+- 장르: {genre}
+- 분위기: {mood}
+- 템포: {tempo}
+- 보컬 스타일: {vocal}
+- 가사 언어: {language}
+- 핵심 메시지: {message}
+- 꼭 포함할 단어와 이미지: {keywords}
+- 제목의 느낌: {title_style}
+- 곡 구성: {structure}
+
+[가사 작성 원칙]
+1. {language_rule}
+2. 전체 가사에 하나의 일관된 이야기와 감정 흐름이 있어야 합니다.
+3. 감정만 나열하지 말고 인물의 행동, 장소, 시간, 장면을 구체적으로 보여 주세요.
+4. Verse에서는 상황과 이야기를 전개합니다.
+5. Pre-Chorus에서는 긴장과 기대를 높입니다.
+6. Chorus에는 핵심 메시지를 담은 짧고 강한 훅을 넣습니다.
+7. Bridge에서는 새로운 관점이나 감정의 전환을 보여 줍니다.
+8. 한 줄이 지나치게 길지 않도록 노래하기 쉬운 길이로 작성합니다.
+9. 운율과 라임은 '{rhyme}' 수준으로 구성합니다.
+10. 후렴 반복은 '{repetition}' 수준으로 구성합니다.
+11. 특정 가수나 기존 노래를 모방하지 않고 완전히 새롭게 작성합니다.
+
+[출력 형식]
+1. 곡 제목 후보 3개
+2. 곡의 핵심 메시지 한 문장
+3. 다음 구간 태그를 사용한 전체 가사
+   [Intro]
+   [Verse 1]
+   [Pre-Chorus]
+   [Chorus]
+   [Verse 2]
+   [Pre-Chorus]
+   [Chorus]
+   [Bridge]
+   [Final Chorus]
+   [Outro]
+4. 가사에서 가장 중요한 한 줄
+5. Suno의 Lyrics 입력란에 붙여 넣을 수 있도록 가사 부분만 다시 정리"""
+
+
+# =========================================================
+# 4. 화면 디자인
+# =========================================================
 st.markdown(
     """
     <style>
     :root {
-        --text-main: #2f3542;
-        --text-sub: #5f6572;
-        --pink: #e75480;
-        --pink-deep: #cf3f72;
-        --lavender: #7b70d6;
-        --border: #efc2d4;
-        --card: rgba(255, 255, 255, 0.96);
-        --soft-yellow: #fff6d6;
-    }
-
-    html, body, .stApp {
-        color: var(--text-main) !important;
+        --main-text: #253047;
+        --sub-text: #59657a;
+        --pink: #cf467d;
+        --purple: #6e62c9;
+        --border: #e7c3d3;
     }
 
     .stApp {
         background:
-            radial-gradient(circle at 12% 10%, rgba(255, 203, 224, 0.72), transparent 28%),
-            radial-gradient(circle at 88% 8%, rgba(210, 211, 255, 0.70), transparent 28%),
-            linear-gradient(180deg, #fff9fc 0%, #fff2f8 55%, #f8f7ff 100%);
+            radial-gradient(circle at 10% 7%, rgba(255, 206, 226, 0.75), transparent 28%),
+            radial-gradient(circle at 90% 5%, rgba(213, 215, 255, 0.75), transparent 28%),
+            linear-gradient(180deg, #fff9fc 0%, #f6f6ff 100%);
+        color: var(--main-text);
     }
 
     .block-container {
-        max-width: 920px;
-        padding-top: 2rem;
+        max-width: 1160px;
+        padding-top: 1.6rem;
         padding-bottom: 4rem;
     }
 
-    h1, h2, h3, h4, h5, h6 {
-        color: #6a3e56 !important;
-        font-weight: 900 !important;
-        letter-spacing: -0.025em;
-    }
-
-    p, label, li {
-        color: var(--text-main) !important;
-    }
-
     .hero {
-        position: relative;
-        overflow: hidden;
         text-align: center;
-        padding: 2.5rem 1.3rem;
-        border-radius: 30px;
-        background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(255,247,252,0.97));
-        border: 2px solid #f2bad0;
-        box-shadow: 0 16px 42px rgba(172, 92, 139, 0.16);
-        margin-bottom: 1.6rem;
-    }
-
-    .hero::before,
-    .hero::after {
-        content: "♪";
-        position: absolute;
-        font-size: 2.4rem;
-        color: rgba(231, 84, 128, 0.22);
-        animation: floatNote 4s ease-in-out infinite;
-    }
-
-    .hero::before {
-        top: 18px;
-        left: 28px;
-    }
-
-    .hero::after {
-        content: "♫";
-        right: 30px;
-        bottom: 18px;
-        animation-delay: 1.2s;
-    }
-
-    @keyframes floatNote {
-        0%, 100% { transform: translateY(0) rotate(-5deg); }
-        50% { transform: translateY(-10px) rotate(7deg); }
+        padding: 2.25rem 1.1rem;
+        margin-bottom: 1.4rem;
+        border: 2px solid #efbdd1;
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 15px 38px rgba(104, 74, 113, 0.14);
     }
 
     .hero-title {
-        color: var(--pink-deep) !important;
-        font-size: clamp(2.05rem, 6vw, 3.45rem);
+        color: #c83e75 !important;
+        font-size: clamp(2rem, 5vw, 3.25rem);
         font-weight: 950;
         letter-spacing: -0.045em;
-        text-shadow: 0 2px 0 rgba(255,255,255,0.8);
     }
 
     .hero-subtitle {
-        color: #5b4f59 !important;
-        line-height: 1.75;
+        color: #4d586c !important;
         margin-top: 0.7rem;
-        font-size: 1.02rem;
+        line-height: 1.75;
         font-weight: 650;
     }
 
-    .tip {
-        background: var(--soft-yellow);
-        border: 1.5px dashed #d8aa36;
-        color: #5e4812 !important;
-        padding: 1rem 1.1rem;
-        border-radius: 17px;
-        line-height: 1.65;
-        font-weight: 650;
-        box-shadow: 0 6px 18px rgba(167, 129, 38, 0.08);
+    h1, h2, h3, h4 {
+        color: #5e4052 !important;
     }
 
-    .tip * {
-        color: #5e4812 !important;
+    p, label, li {
+        color: var(--main-text) !important;
     }
 
-    /* 입력창 및 텍스트 영역 */
     div[data-testid="stTextInput"] input,
     div[data-testid="stTextArea"] textarea {
+        color: #202632 !important;
         background: #ffffff !important;
-        color: #20242d !important;
         border: 2px solid var(--border) !important;
-        border-radius: 15px !important;
-        caret-color: var(--pink-deep) !important;
-        box-shadow: 0 3px 10px rgba(123, 75, 101, 0.06);
-    }
-
-    div[data-testid="stTextInput"] input:focus,
-    div[data-testid="stTextArea"] textarea:focus {
-        border-color: #df6f9b !important;
-        box-shadow: 0 0 0 0.15rem rgba(223, 111, 155, 0.15) !important;
+        border-radius: 14px !important;
+        caret-color: var(--pink) !important;
     }
 
     div[data-testid="stTextInput"] input::placeholder,
     div[data-testid="stTextArea"] textarea::placeholder {
-        color: #8b8f99 !important;
+        color: #858b98 !important;
         opacity: 1 !important;
     }
 
-    /* selectbox */
     div[data-baseweb="select"] > div {
+        color: #202632 !important;
         background: #ffffff !important;
-        color: #20242d !important;
         border: 2px solid var(--border) !important;
-        border-radius: 15px !important;
-        box-shadow: 0 3px 10px rgba(123, 75, 101, 0.06);
+        border-radius: 14px !important;
     }
 
     div[data-baseweb="select"] span,
-    div[data-baseweb="select"] div {
-        color: #20242d !important;
+    div[data-baseweb="select"] div,
+    ul[role="listbox"],
+    div[role="option"] {
+        color: #202632 !important;
     }
 
-    ul[role="listbox"] {
-        background: #ffffff !important;
-    }
-
-    ul[role="listbox"] li,
+    ul[role="listbox"],
     div[role="option"] {
         background: #ffffff !important;
-        color: #20242d !important;
     }
 
     div[role="option"]:hover {
         background: #fff0f6 !important;
     }
 
-    /* 숫자/슬라이더 */
-    div[data-testid="stSlider"] * {
-        color: #2f3542 !important;
-    }
-
-    div[data-baseweb="slider"] div[role="slider"] {
-        background: var(--pink-deep) !important;
-        border-color: var(--pink-deep) !important;
-    }
-
-    /* 체크박스 */
+    div[data-testid="stRadio"] label,
+    div[data-testid="stRadio"] span,
     div[data-testid="stCheckbox"] label,
     div[data-testid="stCheckbox"] span {
-        color: #2f3542 !important;
-        font-weight: 650;
+        color: #283142 !important;
     }
 
-    /* 일반 버튼 */
     .stButton > button {
         width: 100%;
+        padding: 0.88rem 1rem;
         border: none !important;
-        border-radius: 16px !important;
-        padding: 0.9rem 1rem !important;
+        border-radius: 15px !important;
         color: #ffffff !important;
-        font-size: 1.07rem !important;
-        font-weight: 900 !important;
-        background: linear-gradient(90deg, #e95d91, #8175df) !important;
-        box-shadow: 0 10px 24px rgba(159, 81, 145, 0.24) !important;
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        font-size: 1.06rem;
+        font-weight: 900;
+        background: linear-gradient(90deg, #dc568b, #7064cf) !important;
+        box-shadow: 0 9px 23px rgba(117, 76, 142, 0.24);
     }
 
     .stButton > button:hover {
-        transform: translateY(-2px);
         color: #ffffff !important;
-        box-shadow: 0 13px 28px rgba(159, 81, 145, 0.30) !important;
+        transform: translateY(-1px);
     }
 
     .stButton > button * {
         color: #ffffff !important;
     }
 
-    /* 다운로드 버튼 */
     .stDownloadButton > button {
         width: 100%;
         border: none !important;
-        border-radius: 15px !important;
-        background: linear-gradient(90deg, #6f67cf, #5b87d9) !important;
+        border-radius: 14px !important;
         color: #ffffff !important;
-        font-weight: 850 !important;
-        box-shadow: 0 8px 20px rgba(79, 91, 170, 0.20);
-    }
-
-    .stDownloadButton > button:hover {
-        color: #ffffff !important;
-        transform: translateY(-1px);
+        background: #6676c6 !important;
+        font-weight: 800;
     }
 
     .stDownloadButton > button * {
         color: #ffffff !important;
     }
 
-    /* 성공/경고 메시지 */
-    div[data-testid="stAlert"] {
-        border-radius: 16px !important;
-        border: 1px solid #d8b548 !important;
-        background: #fff8d9 !important;
+    .guide {
+        margin: 1rem 0;
+        padding: 1rem 1.1rem;
+        border: 1px solid #d8bd58;
+        border-radius: 15px;
+        background: #fff8d8;
+        color: #554415 !important;
+        line-height: 1.7;
+        font-weight: 620;
     }
 
-    div[data-testid="stAlert"] * {
-        color: #554314 !important;
-        font-weight: 650;
+    div[data-testid="stTabs"] button {
+        color: #465168 !important;
+        font-weight: 800;
     }
 
-    /* 결과 텍스트 영역 */
-    div[data-testid="stTextArea"] textarea {
-        line-height: 1.6 !important;
-        font-size: 0.95rem !important;
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        color: #c83e75 !important;
     }
 
-    /* 캡션 및 도움말 */
-    div[data-testid="stCaptionContainer"],
-    div[data-testid="InputInstructions"] {
-        color: #616773 !important;
-    }
-
-    /* expander 및 기타 박스 */
-    details {
-        background: rgba(255, 255, 255, 0.92) !important;
-        border: 1px solid #eac6d7 !important;
-        border-radius: 15px !important;
-    }
-
-    /* 사이드바가 생길 경우 */
-    section[data-testid="stSidebar"] {
-        background: #fff5fa !important;
-    }
-
-    section[data-testid="stSidebar"] * {
-        color: #2f3542 !important;
-    }
-
-    /* 하단 안내 문구 */
-    .footer-note {
-        text-align: center;
-        color: #665d67 !important;
-        font-size: 0.88rem;
-        line-height: 1.65;
-        margin-top: 2rem;
-        font-weight: 600;
-    }
-
-    @media (max-width: 640px) {
+    @media (max-width: 700px) {
         .block-container {
             padding-top: 1rem;
         }
 
         .hero {
-            padding: 2rem 1rem;
-            border-radius: 24px;
-        }
-
-        .hero-title {
-            font-size: 2.15rem;
+            padding: 1.8rem 0.9rem;
         }
     }
     </style>
@@ -492,154 +455,261 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# =========================================================
+# 5. 화면 구성
+# =========================================================
 st.markdown(
     """
     <div class="hero">
-        <div style="font-size:2.5rem;">🎵 💗 🎹</div>
-        <div class="hero-title">멜로디 프롬프트 공방</div>
+        <div style="font-size:2.4rem;">🎵 ✨ 🎤</div>
+        <div class="hero-title">Suno 음악 프롬프트 생성기</div>
         <div class="hero-subtitle">
-            노래의 콘셉트와 분위기를 입력하면<br>
-            가사와 멜로디 생성을 위한 작곡 프롬프트를 만들어 드려요.
+            원하는 음악 스타일을 선택하면<br>
+            Suno용 영어 프롬프트와 가사 생성용 한국어 프롬프트를 만들어 드립니다.
         </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-st.markdown("### 🌷 1. 노래의 기본 설정")
+st.markdown("## 1. 노래의 주제")
 
 concept = st.text_input(
-    "노래의 콘셉트",
-    placeholder="예: 시험을 마친 학생들의 자유와 설렘",
+    "노래의 핵심 콘셉트",
+    placeholder="예: 시험이 끝난 뒤 친구들과 맞이하는 자유로운 여름",
 )
-
-col1, col2 = st.columns(2)
-with col1:
-    genre = st.selectbox("장르", list(GENRE_GUIDES.keys()))
-with col2:
-    mood = st.selectbox("곡의 분위기", list(MOOD_DETAILS.keys()))
 
 story = st.text_area(
     "노래에 담을 이야기",
-    placeholder="예: 긴 시험 기간을 견딘 학생들이 교문을 나서며 친구들과 새로운 추억을 시작하는 이야기",
-    height=110,
+    placeholder=(
+        "예: 긴 시험 기간을 견딘 학생들이 교문을 나서며 "
+        "친구들과 새로운 추억을 시작하는 이야기"
+    ),
+    height=120,
 )
 
-keywords = st.text_input(
-    "꼭 포함하고 싶은 단어나 이미지",
-    placeholder="예: 교문, 여름 바람, 운동장, 자유, 웃음",
-)
+col1, col2 = st.columns(2)
 
-st.markdown("### 🎤 2. 음악과 보컬 설정")
+with col1:
+    keywords = st.text_input(
+        "꼭 포함하고 싶은 단어 또는 이미지",
+        placeholder="예: 여름 바람, 교문, 운동장, 노을, 웃음",
+    )
 
-col3, col4 = st.columns(2)
+with col2:
+    message = st.text_input(
+        "노래가 전할 핵심 메시지",
+        placeholder="예: 힘든 시간이 지나면 새로운 시작이 찾아온다",
+    )
+
+st.markdown("## 2. 음악 스타일")
+
+col3, col4, col5 = st.columns(3)
+
 with col3:
-    language = st.selectbox(
-        "가사 언어",
-        ["한국어", "영어", "한국어 중심 + 영어 포인트", "연주곡"],
-    )
+    genre = st.selectbox("장르", list(GENRES.keys()))
+
 with col4:
-    vocal = st.selectbox(
-        "보컬 스타일",
-        [
-            "맑고 청량한 여성 보컬",
-            "따뜻하고 부드러운 여성 보컬",
-            "힘 있고 시원한 여성 보컬",
-            "맑고 청량한 남성 보컬",
-            "따뜻하고 부드러운 남성 보컬",
-            "힘 있고 깊은 남성 보컬",
-            "남녀 혼성 보컬",
-            "어린이 또는 청소년 합창",
-            "랩 중심 보컬",
-        ],
-        disabled=language == "연주곡",
-    )
+    mood = st.selectbox("분위기", list(MOODS.keys()))
 
-col5, col6 = st.columns(2)
 with col5:
-    tempo = st.selectbox(
-        "템포",
-        [
-            "장르에 맞게 자동",
-            "느린 템포, 약 60~75 BPM",
-            "중간 템포, 약 80~105 BPM",
-            "경쾌한 템포, 약 110~125 BPM",
-            "빠른 템포, 약 126~150 BPM",
-        ],
-    )
-with col6:
-    duration = st.slider("예상 곡 길이", 1.5, 5.0, 3.0, 0.5)
+    tempo = st.selectbox("템포", list(TEMPOS.keys()), index=2)
 
-audience = st.text_input(
-    "주요 청자",
-    placeholder="예: 고등학생, 청소년, 가족, 일반 대중",
+col6, col7 = st.columns(2)
+
+with col6:
+    vocal = st.selectbox("보컬 스타일", list(VOCALS.keys()))
+
+with col7:
+    structure = st.selectbox("곡 구성", list(STRUCTURES.keys()))
+
+instruments = st.multiselect(
+    "중심 악기",
+    list(INSTRUMENTS.keys()),
+    default=["피아노", "신시사이저", "드럼"],
+    help="여러 악기를 선택할 수 있습니다.",
 )
 
-st.markdown("### ✨ 3. 생성 결과 설정")
+col8, col9 = st.columns(2)
 
-col7, col8 = st.columns(2)
-with col7:
-    include_lyrics = st.checkbox(
-        "전체 가사 생성 요청 포함",
-        value=True,
-        disabled=language == "연주곡",
-    )
 with col8:
-    include_notes = st.checkbox(
-        "음이름과 코드 진행 요청 포함",
-        value=True,
+    production = st.selectbox(
+        "프로덕션 스타일",
+        [
+            "clean and polished studio production",
+            "warm analog texture",
+            "wide cinematic sound",
+            "minimal and intimate production",
+            "punchy and energetic production",
+            "spacious and atmospheric production",
+        ],
     )
+
+with col9:
+    era = st.selectbox(
+        "시대와 질감",
+        [
+            "modern and contemporary",
+            "retro 1980s-inspired",
+            "nostalgic 1990s-inspired",
+            "early 2000s pop-inspired",
+            "timeless and classic",
+            "futuristic and experimental",
+        ],
+    )
+
+extra_style = st.text_input(
+    "추가 음악 스타일",
+    placeholder="예: explosive final chorus, soft piano intro, layered harmonies",
+)
+
+st.markdown("## 3. 가사 설정")
+
+col10, col11, col12 = st.columns(3)
+
+with col10:
+    language = st.selectbox("가사 언어", LANGUAGES)
+
+with col11:
+    rhyme = st.selectbox(
+        "운율과 라임",
+        ["자연스럽게", "약하게", "적당히", "강하게"],
+    )
+
+with col12:
+    repetition = st.selectbox(
+        "후렴 반복",
+        ["적당히", "적게", "강하게"],
+    )
+
+title_style = st.text_input(
+    "제목의 느낌",
+    placeholder="예: 짧고 시적인 제목, 청춘 영화 같은 제목",
+)
 
 st.markdown(
     """
-    <div class="tip">
-        💡 완성된 프롬프트를 ChatGPT 같은 생성형 AI에 입력하면 가사, 곡 구성,
-        코드 진행과 음이름을 만들 수 있어요. 음악 생성 도구에는 결과 중
-        '짧은 스타일 프롬프트'를 활용하면 편리해요.
+    <div class="guide">
+        💡 <b>사용 방법</b><br>
+        영어 프롬프트는 Suno의 <b>Style of Music</b> 입력란에 붙여 넣습니다.<br>
+        한국어 프롬프트는 ChatGPT와 같은 생성형 AI에 입력해 가사를 만든 뒤,
+        완성된 가사를 Suno의 <b>Lyrics</b> 입력란에 붙여 넣습니다.
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-generate = st.button("나만의 작곡 프롬프트 만들기 🎼")
-
-if generate:
-    prompt = make_prompt(
-        concept=concept,
-        mood=mood,
-        genre=genre,
-        language=language,
-        vocal=vocal,
-        tempo=tempo,
-        keywords=keywords,
-        story=story,
-        audience=audience,
-        duration=duration,
-        include_lyrics=include_lyrics,
-        include_notes=include_notes,
+if st.button("프롬프트 만들기 🎼"):
+    concept_value = use_default(
+        concept,
+        "a hopeful story about a new beginning",
+    )
+    story_value = use_default(
+        story,
+        "어려운 시간을 지나 새로운 시작을 맞이하는 사람의 이야기",
+    )
+    keywords_value = use_default(
+        keywords,
+        "빛, 바람, 새로운 시작, 희망",
+    )
+    message_value = use_default(
+        message,
+        "어려움을 지나면 다시 시작할 수 있다",
+    )
+    title_value = use_default(
+        title_style,
+        "짧고 기억하기 쉬우며 곡의 이미지를 담은 제목",
     )
 
-    st.success("작곡 프롬프트가 완성되었습니다! 아래 내용을 복사해 사용해 보세요. 💕")
-    st.text_area(
-        "생성된 프롬프트",
-        value=prompt,
-        height=650,
+    suno_prompt = create_suno_prompt(
+        genre=genre,
+        mood=mood,
+        tempo=tempo,
+        vocal=vocal,
+        instruments=instruments,
+        structure=structure,
+        concept=concept_value,
+        production=production,
+        era=era,
+        extra_style=extra_style,
+    )
+
+    lyrics_prompt = create_lyrics_prompt(
+        concept=concept_value,
+        story=story_value,
+        keywords=keywords_value,
+        message=message_value,
+        genre=genre,
+        mood=mood,
+        tempo=tempo,
+        vocal=vocal,
+        structure=structure,
+        language=language,
+        title_style=title_value,
+        rhyme=rhyme,
+        repetition=repetition,
+    )
+
+    st.success("프롬프트가 완성되었습니다.")
+
+    tab1, tab2 = st.tabs(
+        [
+            "🎧 Suno 영어 프롬프트",
+            "✍️ 가사 생성 한국어 프롬프트",
+        ]
+    )
+
+    with tab1:
+        st.markdown("### Suno Style of Music 프롬프트")
+        st.text_area(
+            "영어 프롬프트",
+            value=suno_prompt,
+            height=270,
+        )
+
+        st.download_button(
+            "영어 프롬프트 저장",
+            data=suno_prompt,
+            file_name="suno_style_prompt.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+    with tab2:
+        st.markdown("### 가사 생성용 한국어 프롬프트")
+        st.text_area(
+            "한국어 프롬프트",
+            value=lyrics_prompt,
+            height=650,
+        )
+
+        st.download_button(
+            "한국어 프롬프트 저장",
+            data=lyrics_prompt,
+            file_name="lyrics_prompt.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+    combined = (
+        "[SUNO STYLE PROMPT]\n"
+        + suno_prompt
+        + "\n\n"
+        + "[가사 생성 프롬프트]\n"
+        + lyrics_prompt
     )
 
     st.download_button(
-        "프롬프트를 TXT 파일로 저장하기 📥",
-        data=prompt,
-        file_name="music_generation_prompt.txt",
+        "두 프롬프트를 한 파일로 저장",
+        data=combined,
+        file_name="suno_prompt_package.txt",
         mime="text/plain",
         use_container_width=True,
     )
 
-st.markdown(
-    """
-    <div class="footer-note">
-        생성형 AI의 결과는 도구마다 달라질 수 있어요.<br>
-        특정 가수나 기존 노래를 그대로 모방하기보다 나만의 이야기와 분위기를 만들어 보세요.
-    </div>
-    """,
-    unsafe_allow_html=True,
+st.markdown("---")
+st.caption(
+    "특정 가수나 기존 노래를 그대로 모방하지 않고 음악적 특징을 조합해 "
+    "새로운 곡을 만들 수 있도록 설계된 웹앱입니다."
 )
