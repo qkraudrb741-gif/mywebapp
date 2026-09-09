@@ -70,7 +70,7 @@ elif st.session_state.page == "game":
             st.rerun()
 
     # Three.js 기반 3D Canvas 게임 엔진 HTML/JS
-    game_html = 
+    game_html = """
     <!DOCTYPE html>
     <html>
     <head>
@@ -374,6 +374,7 @@ elif st.session_state.page == "game":
         </script>
     </body>
     </html>
+    """
 
     # Streamlit에 3D 캔버스 임베딩
     components.html(game_html, height=720)
