@@ -177,4 +177,72 @@ for step in range(1, int(cycle_count) + 1):
     step_fatigue = profile["damage_rate"] * force_stress * step
     efficiency_loss = 0.2 if step_fatigue > 85.0 else (1.0 - step_fatigue / 250.0)
     target_v = usable_rectified_v * max(0.1, efficiency_loss)
-    if target
+    if target_v > current_cap_v:
+        current_cap_v += (target_v - current_cap_v) * min(0.5, charge_efficiency)
+    cap_voltages.append({
+        "개폐 횟수 (회)": step,
+        "캐패시터 충전 전압 (V)": round(current_cap_v, 3),
+        "소자 피로도 (%)": round(min(100.0, step_fatigue), 2),
+    })
+
+stored_energy_mj = 0.5 * (capacitor_uf * 1e-6) * (current_cap_v ** 2) * 1000.0
+k4.metric(
+    label="캐패시터 최종 충전 전압",
+    value=f"{current_cap_v:.2f} V",
+    delta=f"축전 에너지 {stored_energy_mj:.2f} mJ",
+)
+
+if current_cap_v >= 3.3:
+    st.success(f"✅ **비상 전원 구동 가능:** 충전 전압({current_cap_v:.2f} V)이 고휘도 LED(약 2.0~3.0V) 및 저전력 비상 센서(3.3V) 구동 기준을 충족합니다.")
+elif current_cap_v >= 1.8:
+    st.info(f"💡 **저전력 LED 점등 가능:** 충전 전압({current_cap_v:.2f} V)으로 적색/황색 비상 표시 LED 점등이 가능합니다. 센서 구동을 위해 개폐 횟수를 늘리거나 캐패시터 용량을 조정해 보세요.")
+else:
+    st.warning(f"⚠️ **전압 부족 ({current_cap_v:.2f} V):** 다이오드 전압 강하({diode_drop_v}V) 이후 유효 충전 전압이 낮습니다. 완충재 조건 또는 개폐 횟수를 변경해 보세요.")
+
+st.divider()
+
+# 6. 시각적 비교 차트 1: 전체 완충재 조건별 트레이드오프 비교
+st.subheader("📈 1. 완충재별 전압 출력 vs 소자 피로도 트레이드오프 비교")
+st.caption("현재 설정된 충격 조건에서 5가지 완충재의 예상 성능을 한눈에 비교합니다.")
+
+comparison_rows = []
+for name, p in CUSHION_PROFILES.items():
+    r_fac = p["recovery_rate"] if rapid_open else 1.0
+    v_avg = p["base_avg_v"] * (impact_scale ** 0.85) * r_fac
+    fat = min(100.0, p["damage_rate"] * force_stress * cycle_count)
+    comparison_rows.append({
+        "완충재 조건": name,
+        "예상 평균 피크 전압 (V)": round(v_avg, 2),
+        f"{cycle_count}회 후 소자 피로도 (%)": round(fat, 1),
+        "충격 지속시간 (ms)": p["impact_time_ms"],
+        "보고서 관찰 결과": p["status_note"],
+    })
+
+df_comp = pd.DataFrame(comparison_rows)
+
+col_chart1, col_chart2 = st.columns(2)
+with col_chart1:
+    st.markdown("**완충재별 예상 평균 피크 전압 (V)**")
+    st.bar_chart(df_comp.set_index("완충재 조건")["예상 평균 피크 전압 (V)"], color="#10B981")
+
+with col_chart2:
+    st.markdown(f"**완충재별 {cycle_count}회 충격 후 소자 피로도 (%) — 낮을수록 안전**")
+    st.bar_chart(df_comp.set_index("완충재 조건")[f"{cycle_count}회 후 소자 피로도 (%)"], color="#EF4444")
+
+with st.expander("📋 완충재별 상세 비교 데이터 표 보기"):
+    st.dataframe(df_comp, use_container_width=True, hide_index=True)
+
+st.divider()
+
+# 7. 시각적 비교 차트 2: 개폐 반복에 따른 캐패시터 충전 곡선 및 피로도 추이
+st.subheader("🔋 2. 브릿지 정류 · 캐패시터 축전 및 소자 피로도 변화 추이")
+df_history = pd.DataFrame(cap_voltages).set_index("개폐 횟수 (회)")
+
+col_line1, col_line2 = st.columns(2)
+with col_line1:
+    st.markdown(f"**출입문 개폐 횟수에 따른 캐패시터 충전 전압 (V) [용량: {capacitor_uf}μF]**")
+    st.line_chart(df_history["캐패시터 충전 전압 (V)"], color="#2563EB")
+
+with col_line2:
+    st.markdown("**출입문 개폐 횟수에 따른 소자 누적 피로도 (%)**")
+    st.line_chart(df_history["소자 피로도 (%)"], color="#F97316")
