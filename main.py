@@ -120,4 +120,61 @@ cycle_count = st.sidebar.number_input(
 rapid_open = st.sidebar.checkbox("연속 빠른 개폐 조건 적용 (복원 속도 반영)", value=True)
 
 capacitor_uf = st.sidebar.slider("축전 캐패시터 용량 (μF)", min_value=10, max_value=1000, value=100, step=10)
-diode_drop_v = st.sidebar.slider("브릿지 정류 다이오드 전압 강하 (V)", min_value=0.0, max_value=1.4, value=
+diode_drop_v = st.sidebar.slider("브릿지 정류 다이오드 전압 강하 (V)", min_value=0.0, max_value=1.4, value=0.7, step=0.1)
+
+# 4. 물리 및 전기 출력 계산 모델
+momentum_ns = (mass_g / 1000.0) * velocity_ms
+impact_scale = momentum_ns / BASE_MOMENTUM
+
+delta_t_sec = profile["impact_time_ms"] / 1000.0
+avg_force_n = momentum_ns / delta_t_sec
+
+recovery_factor = profile["recovery_rate"] if rapid_open else 1.0
+
+effective_scale = (impact_scale ** 0.85) * recovery_factor
+est_avg_v = profile["base_avg_v"] * effective_scale
+est_max_v = profile["base_max_v"] * effective_scale
+
+force_stress = impact_scale ** 1.35
+fatigue_percent = min(100.0, profile["damage_rate"] * force_stress * cycle_count)
+
+if fatigue_percent >= 80.0:
+    health_status = "🔴 파손 위험 (납땜 크랙/이탈)"
+elif fatigue_percent >= 35.0:
+    health_status = "🟡 주의 (표면 피로 누적)"
+else:
+    health_status = "🟢 안전 (소자 정상 작동)"
+
+# 5. 메인 화면: 핵심 지표(KPI) 카드
+st.subheader(f"📊 시뮬레이션 결과 요약 — [{selected_cushion}]")
+
+k1, k2, k3, k4 = st.columns(4)
+k1.metric(
+    label="예상 평균 피크 전압",
+    value=f"{est_avg_v:.2f} V",
+    delta=f"최대 피크 {est_max_v:.2f} V",
+)
+k2.metric(
+    label="평균 충격력 (F = I / Δt)",
+    value=f"{avg_force_n:.1f} N",
+    delta=f"충격시간 {profile['impact_time_ms']} ms",
+    delta_color="off",
+)
+k3.metric(
+    label=f"{cycle_count}회 후 소자 피로도",
+    value=f"{fatigue_percent:.1f} %",
+    delta=health_status,
+    delta_color="inverse" if fatigue_percent >= 35.0 else "normal",
+)
+
+# 캐패시터 충전 시뮬레이션
+usable_rectified_v = max(0.0, est_avg_v - diode_drop_v)
+charge_efficiency = 0.035 * (100.0 / capacitor_uf)
+cap_voltages = []
+current_cap_v = 0.0
+
+for step in range(1, int(cycle_count) + 1):
+    step_fatigue = profile["damage_rate"] * force_stress * step
+    efficiency_loss = 0.2 if step_fatigue > 85.0 else (1.0 - step_fatigue / 250.0)
+    target_v = usable_rectified_v * max(0.1, efficiency_loss)
+    if target
