@@ -1,1040 +1,347 @@
-import io
-import json
-import re
-
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
-
-# =========================================================
 # 1. 페이지 기본 설정
-# =========================================================
 st.set_page_config(
-    page_title="전국 시군구 고령화율 지도",
-    page_icon="🗺️",
+    page_title="AbAg-Fold AI 구조 예측 & 데이터 정제 시뮬레이터",
+    page_icon="🧬",
     layout="wide",
 )
 
-POPULATION_URL = (
-    "https://raw.githubusercontent.com/greatsong/modudata/"
-    "main/data/population_yearly.csv.gz"
+# 2. 상단 헤더 (보고서 프로젝트 정보 반영)
+st.title("🧬 항체-항원 결합 AI 구조 예측 및 데이터 정제 시뮬레이터")
+st.caption(
+    "거제상문고등학교 2026학년도 교과심화탐구 프로젝트 | 팀 '항원과 항체' (20527 정시연, 20708 박준영)"
+)
+st.info(
+    "💡 **탐구 핵심:** AlphaFold3 기반 항체 설계(AbAg-Fold)에서 **데이터 정제(결측치 처리, 표준 용어 매핑, 물리화학적 필터링)**가 "
+    "AI의 결합 구조 예측 정확도와 신뢰성을 어떻게 극대화하는지 직접 변수를 조절하며 확인해 보세요. "
+    "(처음 이용하신다면 아래 **'📖 사용 방법'** 탭을 먼저 확인해 보세요!)"
 )
 
-GEOJSON_URL = (
-    "https://raw.githubusercontent.com/greatsong/modudata/"
-    "main/data/boundaries/sigungu_kr.geojson"
+# 3. 사이드바: 시뮬레이션 변수 제어 (슬라이더 & 수치 입력)
+st.sidebar.header("⚙️ 시뮬레이션 변수 조절")
+
+st.sidebar.subheader("1️⃣ 생명과학적 조건 (항원-항체 특성)")
+antigen_type = st.sidebar.selectbox(
+    "타겟 항원 그룹 선택",
+    [
+        "A형 인플루엔자 (표준 변이)",
+        "SARS-CoV-2 (고변이 스파이크)",
+        "희귀 바이러스 (제한적 데이터 그룹)",
+    ],
+    help="보고서 내용: 항원 그룹 구성이 제한적일수록 AI 모델링의 난이도가 상승합니다.",
 )
 
-# 청소년기본법에서 사용하는 청소년 연령 범위
-YOUTH_AGES = range(9, 25)  # 9세 이상 24세 이하
-
-# 청년기본법에서 사용하는 청년 연령 범위
-YOUNG_ADULT_AGES = range(19, 35)  # 19세 이상 34세 이하
-
-# 단계구분도의 고령화율 구간
-AGEING_BINS = [-np.inf, 19, 23, 28, 38, np.inf]
-
-AGEING_LABELS = [
-    "19% 미만",
-    "19% 이상 23% 미만",
-    "23% 이상 28% 미만",
-    "28% 이상 38% 미만",
-    "38% 이상",
-]
-
-# 낮은 비율은 옅게, 높은 비율은 진하게 표시합니다.
-AGEING_COLORS = {
-    "19% 미만": "#fff3e6",
-    "19% 이상 23% 미만": "#fbd3ad",
-    "23% 이상 28% 미만": "#f5a175",
-    "28% 이상 38% 미만": "#d95f53",
-    "38% 이상": "#8e2137",
-}
-
-
-# =========================================================
-# 2. 간단한 화면 디자인
-# =========================================================
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background: #f6f8fb;
-        color: #202938;
-    }
-
-    .block-container {
-        max-width: 1500px;
-        padding-top: 1.5rem;
-        padding-bottom: 3rem;
-    }
-
-    .hero {
-        padding: 1.5rem 1.7rem;
-        margin-bottom: 1.2rem;
-        border: 1px solid #dce3ed;
-        border-radius: 20px;
-        background: #ffffff;
-        box-shadow: 0 8px 24px rgba(32, 41, 56, 0.07);
-    }
-
-    .hero h1 {
-        margin: 0;
-        color: #283b57;
-        font-size: 2.15rem;
-    }
-
-    .hero p {
-        margin: 0.7rem 0 0;
-        color: #58677c;
-        line-height: 1.7;
-    }
-
-    .notice {
-        padding: 0.9rem 1.1rem;
-        margin: 0.7rem 0 1rem;
-        border-left: 5px solid #5479a7;
-        border-radius: 10px;
-        background: #edf3fa;
-        color: #26364d;
-        line-height: 1.65;
-    }
-
-    [data-testid="stMetric"] {
-        padding: 1rem;
-        border: 1px solid #dce3ed;
-        border-radius: 15px;
-        background: #ffffff;
-    }
-
-    div[data-testid="stDataFrame"] {
-        border: 1px solid #dce3ed;
-        border-radius: 14px;
-        overflow: hidden;
-        background: #ffffff;
-    }
-
-    h2, h3 {
-        color: #2d405b;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
+cdr_complexity = st.sidebar.slider(
+    "다중 CDR(상보성 결정 부위) 변이 복잡도",
+    min_value=1,
+    max_value=10,
+    value=5,
+    help="수치가 높을수록 다중 CDR 조합으로 인해 결합 구조 예측 변동성이 커집니다.",
 )
 
+temperature = st.sidebar.number_input(
+    "반응 환경 온도 (°C)",
+    min_value=30.0,
+    max_value=45.0,
+    value=36.5,
+    step=0.5,
+    help="생체 적정 온도(36.5°C)에서 벗어날수록 물리화학적 결합 안정성이 떨어집니다.",
+)
 
-# =========================================================
-# 3. 인터넷에서 데이터 불러오기
-# =========================================================
-def download_bytes(url: str) -> bytes:
-    """인터넷 주소에서 파일을 내려받아 바이트 형태로 돌려줍니다."""
-    response = requests.get(
-        url,
-        timeout=90,
-        headers={"User-Agent": "Mozilla/5.0"},
+st.sidebar.divider()
+st.sidebar.subheader("2️⃣ AI 학습 데이터 오염도 (노이즈)")
+raw_noise_rate = st.sidebar.slider(
+    "원본 데이터 오류·노이즈 비율 (%)",
+    min_value=0,
+    max_value=80,
+    value=45,
+    step=5,
+    help="결측치, 오기입된 아미노산 서열, 비정상 결합 구조 등 정제 전 데이터 오류 비율",
+)
+
+st.sidebar.divider()
+st.sidebar.subheader("3️⃣ 데이터 정제 알고리즘 적용 (해결책)")
+use_missing_filter = st.sidebar.checkbox(
+    "✅ 1단계: 결측치 배제 및 이상치 필터링",
+    value=True,
+    help="오류 데이터를 단순 학습하지 않도록 결측치와 노이즈를 제거합니다.",
+)
+use_standard_vocab = st.sidebar.checkbox(
+    "✅ 2단계: 표준 용어집(대표어) 매핑 전처리",
+    value=True,
+    help="서로 다르게 표기된 아미노산/항원 명칭을 대표어로 통일합니다.",
+)
+use_physicochemical = st.sidebar.checkbox(
+    "✅ 3단계: 물리화학적 3D 구조 정제 (AbAg-Fold)",
+    value=False,
+    help="생체 내 실제 결합 에너지와 입체 장애를 검증하여 신뢰도 높은 구조만 선별합니다.",
+)
+
+# 4. 핵심 시뮬레이션 연산 로직 (순수 Python 수학 연산)
+group_penalty = {
+    "A형 인플루엔자 (표준 변이)": 2.0,
+    "SARS-CoV-2 (고변이 스파이크)": 8.0,
+    "희귀 바이러스 (제한적 데이터 그룹)": 14.0,
+}[antigen_type]
+
+temp_penalty = abs(temperature - 36.5) * 2.2
+cdr_penalty = cdr_complexity * 1.8
+
+effective_noise = float(raw_noise_rate)
+if use_missing_filter:
+    effective_noise *= 0.55
+if use_standard_vocab:
+    effective_noise *= 0.70
+if use_physicochemical:
+    effective_noise *= 0.45
+
+raw_accuracy = max(
+    5.0,
+    min(99.2, 98.0 - (raw_noise_rate * 0.75) - group_penalty - cdr_penalty - temp_penalty),
+)
+cleaned_accuracy = max(
+    8.0,
+    min(99.5, 98.5 - (effective_noise * 0.75) - (group_penalty * 0.6) - (cdr_penalty * 0.7) - temp_penalty),
+)
+
+rmsd_score = round(0.8 + (100 - cleaned_accuracy) * 0.065, 2)
+efficiency_gain = round(max(0.0, (cleaned_accuracy - 40) * 1.15), 1)
+
+# 5. 상단 핵심 지표 카드 (KPI)
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric(
+        label="🎯 AI 결합 구조 예측 정확도",
+        value=f"{cleaned_accuracy:.1f}%",
+        delta=f"{cleaned_accuracy - raw_accuracy:+.1f}%p (정제 전 대비)",
     )
-    response.raise_for_status()
-    return response.content
-
-
-@st.cache_data(show_spinner=False, ttl=60 * 60 * 6)
-def load_population() -> pd.DataFrame:
-    """
-    압축된 인구 CSV를 읽습니다.
-
-    '코드'는 계산용 숫자가 아니라 행정구역을 구분하는 이름표이므로
-    반드시 문자열로 읽습니다.
-    """
-    content = download_bytes(POPULATION_URL)
-
-    return pd.read_csv(
-        io.BytesIO(content),
-        compression="gzip",
-        dtype={"코드": "string"},
-        low_memory=False,
+with col2:
+    st.metric(
+        label="📐 3D 구조 예측 오차 (RMSD)",
+        value=f"{rmsd_score} Å",
+        delta="2.0Å 이하 고신뢰" if rmsd_score <= 2.0 else "결합 오차 주의",
+        delta_color="normal" if rmsd_score <= 2.0 else "inverse",
     )
-
-
-@st.cache_data(show_spinner=False, ttl=60 * 60 * 24)
-def load_geojson() -> dict:
-    """전국 시군구 경계 GeoJSON을 읽습니다."""
-    content = download_bytes(GEOJSON_URL)
-    return json.loads(content.decode("utf-8-sig"))
-
-
-# =========================================================
-# 4. 데이터 정리용 함수
-# =========================================================
-def normalize_code(value: object, length: int) -> str | None:
-    """
-    행정구역 코드를 지정한 길이의 문자열로 정리합니다.
-
-    엑셀이나 CSV 처리 과정에서 코드가 '1234567890.0'처럼 보이는 경우를
-    대비해 끝의 '.0'을 제거하고 숫자 문자만 남깁니다.
-    """
-    if pd.isna(value):
-        return None
-
-    text = str(value).strip()
-    text = re.sub(r"\.0$", "", text)
-    digits = re.sub(r"[^0-9]", "", text)
-
-    if not digits:
-        return None
-
-    # 코드가 짧아졌다면 앞에 0을 붙여 길이를 맞춥니다.
-    return digits.zfill(length)[:length]
-
-
-def to_number(series: pd.Series) -> pd.Series:
-    """
-    쉼표가 들어간 인구 값도 계산할 수 있도록 숫자로 변환합니다.
-    변환할 수 없는 값과 빈칸은 0으로 처리합니다.
-    """
-    return pd.to_numeric(
-        series.astype("string").str.replace(",", "", regex=False),
-        errors="coerce",
-    ).fillna(0)
-
-
-def find_total_age_columns(columns: list[str]) -> list[str]:
-    """
-    '계_0세', '계_1세', ..., '계_100세 이상' 열만 찾습니다.
-
-    '남_'과 '여_' 열까지 더하면 같은 인구를 중복 계산하게 되므로
-    남녀 합계인 '계_' 열만 사용합니다.
-    """
-    pattern = re.compile(r"^계_(\d+)세(?: 이상)?$")
-    age_columns = []
-
-    for column in columns:
-        match = pattern.match(str(column))
-
-        if match:
-            age = int(match.group(1))
-            age_columns.append((age, str(column)))
-
-    age_columns.sort(key=lambda item: item[0])
-    return [column for _, column in age_columns]
-
-
-def columns_for_ages(
-    all_columns: list[str],
-    ages: range,
-) -> list[str]:
-    """원하는 연령 범위의 '계_' 열 이름만 모읍니다."""
-    column_set = set(all_columns)
-    result = []
-
-    for age in ages:
-        column = f"계_{age}세"
-        if column in column_set:
-            result.append(column)
-
-    return result
-
-
-# =========================================================
-# 5. 읍·면·동 자료를 시군구 단위로 합산
-# =========================================================
-def prepare_data(
-    population: pd.DataFrame,
-    geojson: dict,
-) -> tuple[pd.DataFrame, dict, int, list[str]]:
-    """
-    가장 최신 연도의 읍·면·동 인구를 시군구별로 합산하고
-    고령화율, 청소년비율, 청년비율을 계산합니다.
-    """
-    required = {"연도", "시도", "시군구", "동", "코드"}
-    missing = required.difference(population.columns)
-
-    if missing:
-        raise ValueError(
-            "인구 파일에 필요한 열이 없습니다: "
-            + ", ".join(sorted(missing))
-        )
-
-    data = population.copy()
-
-    # 연도를 숫자로 바꾼 뒤 파일에 실제로 들어 있는 가장 최신 연도를 찾습니다.
-    data["연도_숫자"] = pd.to_numeric(data["연도"], errors="coerce")
-
-    if data["연도_숫자"].notna().sum() == 0:
-        raise ValueError("연도 열에서 사용할 수 있는 숫자 연도를 찾지 못했습니다.")
-
-    latest_year = int(data["연도_숫자"].max())
-    data = data.loc[data["연도_숫자"] == latest_year].copy()
-
-    # 10자리 행정동 코드를 문자열로 정리하고 앞 5자리를 시군구 코드로 씁니다.
-    data["행정동코드"] = data["코드"].map(
-        lambda value: normalize_code(value, 10)
+with col3:
+    st.metric(
+        label="🧹 잔여 데이터 노이즈율",
+        value=f"{effective_noise:.1f}%",
+        delta=f"-{raw_noise_rate - effective_noise:.1f}%p 제거됨",
+        delta_color="inverse",
     )
-    data["시군구코드"] = data["행정동코드"].str[:5]
-
-    all_age_columns = find_total_age_columns(list(data.columns))
-
-    if not all_age_columns:
-        raise ValueError(
-            "'계_0세' 형식의 연령별 남녀 합계 열을 찾지 못했습니다."
-        )
-
-    youth_columns = columns_for_ages(
-        all_age_columns,
-        YOUTH_AGES,
+with col4:
+    st.metric(
+        label="💊 신약 후보 도출 효율 상승",
+        value=f"+{efficiency_gain}%",
+        delta="기간·비용 단축 효과",
     )
 
-    young_adult_columns = columns_for_ages(
-        all_age_columns,
-        YOUNG_ADULT_AGES,
-    )
+st.divider()
 
-    # 65세부터 99세까지 찾은 뒤 100세 이상 열을 더합니다.
-    elderly_columns = columns_for_ages(
-        all_age_columns,
-        range(65, 100),
-    )
+# 6. 메인 시각화 영역 (좌: 항원-항체 2D 구조 결합 시뮬레이션 SVG / 우: 정제 단계별 정확도 그래프)
+left_col, right_col = st.columns([1.15, 1])
 
-    if "계_100세 이상" in data.columns:
-        elderly_columns.append("계_100세 이상")
+with left_col:
+    st.subheader("🔬 항원-항체 결합 구조 시각화 (실시간 시뮬레이션)")
 
-    warnings = []
+    gap = int((100 - cleaned_accuracy) * 0.65)
+    angle_error = int((100 - cleaned_accuracy) * 0.28)
 
-    if len(youth_columns) != 16:
-        warnings.append(
-            f"청소년 연령 열을 16개 중 {len(youth_columns)}개만 찾았습니다."
-        )
-
-    if len(young_adult_columns) != 16:
-        warnings.append(
-            f"청년 연령 열을 16개 중 {len(young_adult_columns)}개만 찾았습니다."
-        )
-
-    if len(elderly_columns) != 36:
-        warnings.append(
-            f"65세 이상 연령 열을 36개 중 {len(elderly_columns)}개만 찾았습니다."
-        )
-
-    # 계산에 사용할 모든 인구 열을 숫자로 변환합니다.
-    calculation_columns = sorted(
-        set(
-            all_age_columns
-            + youth_columns
-            + young_adult_columns
-            + elderly_columns
-        )
-    )
-
-    for column in calculation_columns:
-        data[column] = to_number(data[column])
-
-    # 읍·면·동별 인구를 먼저 계산합니다.
-    data["총인구"] = data[all_age_columns].sum(axis=1)
-    data["청소년인구"] = data[youth_columns].sum(axis=1)
-    data["청년인구"] = data[young_adult_columns].sum(axis=1)
-    data["고령인구"] = data[elderly_columns].sum(axis=1)
-
-    # 같은 앞 5자리 코드를 가진 읍·면·동을 시군구별로 합산합니다.
-    sigungu_population = (
-        data.dropna(subset=["시군구코드"])
-        .groupby("시군구코드", as_index=False)[
-            ["총인구", "청소년인구", "청년인구", "고령인구"]
-        ]
-        .sum()
-    )
-
-    # 원본 GeoJSON을 직접 바꾸지 않도록 깊은 복사를 만듭니다.
-    normalized_geojson = json.loads(json.dumps(geojson, ensure_ascii=False))
-
-    boundary_rows = []
-
-    for feature in normalized_geojson.get("features", []):
-        properties = feature.setdefault("properties", {})
-        code = normalize_code(properties.get("코드"), 5)
-
-        # Plotly가 문자열 코드로 정확히 연결할 수 있도록
-        # GeoJSON 속성의 코드도 5자리 문자열로 바꿉니다.
-        properties["코드"] = code
-        feature["id"] = code
-
-        boundary_rows.append(
-            {
-                "시군구코드": code,
-                "시도": properties.get("시도", ""),
-                "시군구": properties.get("시군구", ""),
-            }
-        )
-
-    boundary = (
-        pd.DataFrame(boundary_rows)
-        .dropna(subset=["시군구코드"])
-        .drop_duplicates(subset=["시군구코드"])
-    )
-
-    # 이름이 아니라 5자리 코드로만 인구와 경계를 연결합니다.
-    result = boundary.merge(
-        sigungu_population,
-        on="시군구코드",
-        how="left",
-        validate="one_to_one",
-    )
-
-    population_columns = [
-        "총인구",
-        "청소년인구",
-        "청년인구",
-        "고령인구",
-    ]
-
-    result[population_columns] = result[population_columns].fillna(0)
-
-    # 총인구가 0이면 0으로 나누지 않도록 NaN으로 바꿉니다.
-    valid_total = result["총인구"].replace(0, np.nan)
-
-    result["고령화율"] = result["고령인구"] / valid_total * 100
-    result["청소년비율"] = result["청소년인구"] / valid_total * 100
-    result["청년비율"] = result["청년인구"] / valid_total * 100
-
-    # 요청한 경계값으로 고령화율을 5단계로 나눕니다.
-    result["고령화 단계"] = pd.cut(
-        result["고령화율"],
-        bins=AGEING_BINS,
-        labels=AGEING_LABELS,
-        right=False,
-        ordered=True,
-    )
-
-    return result, normalized_geojson, latest_year, warnings
-
-
-# =========================================================
-# 6. 단계구분도 만들기
-# =========================================================
-def create_map(data: pd.DataFrame, geojson: dict):
-    """배경 지도 타일 없이 시군구 경계만 표시하는 단계구분도를 만듭니다."""
-    map_data = data.dropna(
-        subset=["고령화 단계", "고령화율"]
-    ).copy()
-
-    fig = px.choropleth(
-        map_data,
-        geojson=geojson,
-        locations="시군구코드",
-        featureidkey="properties.코드",
-        color="고령화 단계",
-        color_discrete_map=AGEING_COLORS,
-        category_orders={"고령화 단계": AGEING_LABELS},
-        custom_data=[
-            "시군구",
-            "시도",
-            "고령화율",
-            "청소년비율",
-            "청년비율",
-            "총인구",
-        ],
-    )
-
-    fig.update_traces(
-        marker_line_color="#6e747d",
-        marker_line_width=0.45,
-        hovertemplate=(
-            "<b>%{customdata[1]} %{customdata[0]}</b><br>"
-            "고령화율: %{customdata[2]:.1f}%<br>"
-            "청소년비율(9~24세): %{customdata[3]:.1f}%<br>"
-            "청년비율(19~34세): %{customdata[4]:.1f}%<br>"
-            "총인구: %{customdata[5]:,.0f}명"
-            "<extra></extra>"
-        ),
-    )
-
-    # 배경 지도 타일 없이 GeoJSON 경계 도형만 표시합니다.
-    fig.update_geos(
-        fitbounds="locations",
-        visible=False,
-        projection_type="mercator",
-    )
-
-    fig.update_layout(
-        height=840,
-        margin=dict(l=0, r=0, t=10, b=0),
-        paper_bgcolor="#f6f8fb",
-        plot_bgcolor="#f6f8fb",
-        legend=dict(
-            title="65세 이상 인구 비율",
-            orientation="v",
-            x=0.01,
-            y=0.99,
-            xanchor="left",
-            yanchor="top",
-            bgcolor="rgba(255,255,255,0.94)",
-            bordercolor="#cfd8e5",
-            borderwidth=1,
-            font=dict(size=12, color="#202938"),
-            title_font=dict(size=13, color="#202938"),
-            traceorder="normal",
-        ),
-    )
-
-    return fig
-
-
-# =========================================================
-# 7. 표 만들기
-# =========================================================
-def make_rank_table(
-    data: pd.DataFrame,
-    ascending: bool,
-) -> pd.DataFrame:
-    """고령화율 상위 또는 하위 10개 표를 만듭니다."""
-    table = (
-        data.loc[
-            data["총인구"] > 0,
-            [
-                "시도",
-                "시군구",
-                "고령화율",
-                "청소년비율",
-                "청년비율",
-                "총인구",
-            ],
-        ]
-        .dropna(subset=["고령화율"])
-        .sort_values(
-            ["고령화율", "시도", "시군구"],
-            ascending=[ascending, True, True],
-        )
-        .head(10)
-        .reset_index(drop=True)
-    )
-
-    table.index = table.index + 1
-    return table
-
-
-
-
-# =========================================================
-# 8. 청소년 인구 변화 자료와 그래프 만들기
-# =========================================================
-@st.cache_data(show_spinner=False)
-def prepare_youth_trend(population: pd.DataFrame) -> pd.DataFrame:
-    """
-    모든 연도의 읍·면·동 자료를 시군구 단위로 합산해
-    청소년 인구 변화 그래프에 사용할 자료를 만듭니다.
-    """
-    data = population.copy()
-
-    data["연도"] = pd.to_numeric(data["연도"], errors="coerce")
-    data = data.dropna(subset=["연도"]).copy()
-    data["연도"] = data["연도"].astype(int)
-
-    # 행정동 코드 앞 5자리를 시군구 코드로 사용합니다.
-    data["행정동코드"] = data["코드"].map(
-        lambda value: normalize_code(value, 10)
-    )
-    data["시군구코드"] = data["행정동코드"].str[:5]
-
-    all_age_columns = find_total_age_columns(list(data.columns))
-    youth_columns = columns_for_ages(all_age_columns, YOUTH_AGES)
-
-    if not all_age_columns:
-        raise ValueError(
-            "청소년 변화 그래프를 만들 연령별 인구 열을 찾지 못했습니다."
-        )
-
-    if not youth_columns:
-        raise ValueError(
-            "청소년 변화 그래프를 만들 9~24세 인구 열을 찾지 못했습니다."
-        )
-
-    # 필요한 연령별 열만 숫자로 변환합니다.
-    for column in sorted(set(all_age_columns + youth_columns)):
-        data[column] = to_number(data[column])
-
-    data["총인구"] = data[all_age_columns].sum(axis=1)
-    data["청소년인구"] = data[youth_columns].sum(axis=1)
-
-    # 같은 시군구에 속한 읍·면·동을 연도별로 합산합니다.
-    trend = (
-        data.dropna(subset=["시군구코드"])
-        .groupby(
-            ["연도", "시군구코드", "시도", "시군구"],
-            as_index=False,
-        )[["총인구", "청소년인구"]]
-        .sum()
-    )
-
-    valid_total = trend["총인구"].replace(0, np.nan)
-    trend["청소년비율"] = trend["청소년인구"] / valid_total * 100
-
-    return trend
-
-
-def select_youth_trend(
-    trend: pd.DataFrame,
-    level: str,
-    selected_sido: str | None = None,
-    selected_code: str | None = None,
-) -> tuple[pd.DataFrame, str]:
-    """선택한 지역 수준에 맞는 연도별 청소년 인구 자료를 반환합니다."""
-    if level == "전국":
-        selected = (
-            trend.groupby("연도", as_index=False)[["총인구", "청소년인구"]]
-            .sum()
-            .sort_values("연도")
-        )
-        title = "전국"
-
-    elif level == "시도":
-        selected = (
-            trend.loc[trend["시도"] == selected_sido]
-            .groupby("연도", as_index=False)[["총인구", "청소년인구"]]
-            .sum()
-            .sort_values("연도")
-        )
-        title = str(selected_sido)
-
+    if cleaned_accuracy >= 80:
+        status_text = "✅ 정상 특이적 결합 (고신뢰 항체 설계 성공)"
+        status_color = "#16a34a"
+        antibody_color = "#2563eb"
+    elif cleaned_accuracy >= 55:
+        status_text = "⚠️ 부분 결합 / 다중 CDR 변동성 오차 발생"
+        status_color = "#d97706"
+        antibody_color = "#f59e0b"
     else:
-        selected = (
-            trend.loc[trend["시군구코드"] == selected_code]
-            .groupby("연도", as_index=False)[["총인구", "청소년인구"]]
-            .sum()
-            .sort_values("연도")
-        )
+        status_text = "❌ 결합 실패 / 비특이적 오작동 (노이즈 학습 부작용)"
+        status_color = "#dc2626"
+        antibody_color = "#ef4444"
 
-        name_rows = trend.loc[
-            trend["시군구코드"] == selected_code,
-            ["시도", "시군구"],
-        ].drop_duplicates()
+    svg_html = f"""
+    <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #f8fafc; text-align: center;">
+        <div style="font-weight: 700; font-size: 16px; color: {status_color}; margin-bottom: 8px;">
+            {status_text}
+        </div>
+        <svg width="100%" height="290" viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
+                    <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                </pattern>
+            </defs>
+            <rect width="500" height="290" fill="url(#grid)" rx="8"/>
 
-        if name_rows.empty:
-            title = str(selected_code)
-        else:
-            title = (
-                f"{name_rows.iloc[0]['시도']} "
-                f"{name_rows.iloc[0]['시군구']}"
-            )
+            <g transform="translate({145 - gap//2}, 145)">
+                <circle cx="0" cy="0" r="52" fill="#fee2e2" stroke="#ef4444" stroke-width="3"/>
+                <polygon points="48,-18 76,0 48,18" fill="#ef4444"/>
+                <circle cx="-18" cy="-48" r="10" fill="#f87171"/>
+                <circle cx="-18" cy="48" r="10" fill="#f87171"/>
+                <text x="0" y="5" text-anchor="middle" font-size="14" font-weight="bold" fill="#991b1b">항원 (Antigen)</text>
+                <text x="0" y="22" text-anchor="middle" font-size="10" fill="#b91c1c">에피토프(항원결정기)</text>
+            </g>
 
-    valid_total = selected["총인구"].replace(0, np.nan)
-    selected["청소년비율"] = (
-        selected["청소년인구"] / valid_total * 100
-    )
+            <circle cx="235" cy="145" r="{max(8, 35 - gap//2)}" fill="{status_color}" opacity="{0.15 if cleaned_accuracy < 80 else 0.35}"/>
 
-    return selected, title
+            <g transform="translate({320 + gap//2}, 145) rotate({angle_error})">
+                <rect x="10" y="-14" width="85" height="11" rx="5" fill="{antibody_color}"/>
+                <rect x="10" y="3" width="85" height="11" rx="5" fill="{antibody_color}"/>
+                <g transform="rotate(-32)">
+                    <rect x="-65" y="-12" width="75" height="11" rx="5" fill="{antibody_color}"/>
+                    <polygon points="-65,-12 -82,-18 -72,-6 -82,0 -65,-1" fill="#1d4ed8"/>
+                </g>
+                <g transform="rotate(32)">
+                    <rect x="-65" y="1" width="75" height="11" rx="5" fill="{antibody_color}"/>
+                    <polygon points="-65,1 -82,0 -72,6 -82,18 -65,12" fill="#1d4ed8"/>
+                </g>
+                <text x="52" y="-24" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e3a8a">항체 (Antibody)</text>
+                <text x="-35" y="-48" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">CDR 결합 부위</text>
+            </g>
 
-
-def create_youth_population_chart(
-    data: pd.DataFrame,
-    region_title: str,
-):
-    """연도별 청소년 인구수를 보여 주는 꺾은선 그래프입니다."""
-    fig = px.line(
-        data,
-        x="연도",
-        y="청소년인구",
-        markers=True,
-        title=f"{region_title} 청소년 인구 변화",
-    )
-
-    fig.update_traces(
-        line_width=3,
-        marker_size=8,
-        hovertemplate=(
-            "<b>%{x}년</b><br>"
-            "청소년 인구: %{y:,.0f}명"
-            "<extra></extra>"
-        ),
-    )
-
-    fig.update_layout(
-        height=430,
-        xaxis_title="연도",
-        yaxis_title="청소년 인구(명)",
-        hovermode="x unified",
-        margin=dict(l=20, r=20, t=65, b=20),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-    )
-
-    fig.update_xaxes(dtick=1, showgrid=False)
-    fig.update_yaxes(tickformat=",", gridcolor="#e8edf3")
-
-    return fig
-
-
-def create_youth_rate_chart(
-    data: pd.DataFrame,
-    region_title: str,
-):
-    """연도별 전체 인구 대비 청소년 비율을 보여 주는 그래프입니다."""
-    fig = px.line(
-        data,
-        x="연도",
-        y="청소년비율",
-        markers=True,
-        title=f"{region_title} 청소년 인구 비율 변화",
-    )
-
-    fig.update_traces(
-        line_width=3,
-        marker_size=8,
-        hovertemplate=(
-            "<b>%{x}년</b><br>"
-            "청소년 비율: %{y:.1f}%"
-            "<extra></extra>"
-        ),
-    )
-
-    fig.update_layout(
-        height=430,
-        xaxis_title="연도",
-        yaxis_title="청소년 비율(%)",
-        hovermode="x unified",
-        margin=dict(l=20, r=20, t=65, b=20),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-    )
-
-    fig.update_xaxes(dtick=1, showgrid=False)
-    fig.update_yaxes(ticksuffix="%", gridcolor="#e8edf3")
-
-    return fig
-
-
-# =========================================================
-# 9. 화면 출력
-# =========================================================
-st.markdown(
-    """
-    <div class="hero">
-        <h1>🗺️ 전국 시군구 고령화율 지도</h1>
-        <p>
-            전국 읍·면·동 인구를 행정동 코드 앞 5자리로 합산하고,
-            시군구별 65세 이상 인구 비율을 다섯 단계 색으로 표시합니다.
-            지역에 마우스를 올리면 청소년과 청년 인구 비율도 확인할 수 있습니다.
-        </p>
+            <text x="250" y="272" text-anchor="middle" font-size="12" fill="#475569">
+                결합 간격 오차: {gap}px | CDR 변이 복잡도: Lv.{cdr_complexity} | 잔여 노이즈: {effective_noise:.1f}%
+            </text>
+        </svg>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
+    components.html(svg_html, height=345)
+
+with right_col:
+    st.subheader("📊 데이터 정제 단계별 AI 예측 정확도 비교")
+
+    acc_step0 = round(
+        max(5.0, min(99.0, 98.0 - (raw_noise_rate * 0.75) - group_penalty - cdr_penalty - temp_penalty)),
+        1,
+    )
+    acc_step1 = round(
+        max(5.0, min(99.0, 98.2 - (raw_noise_rate * 0.55 * 0.75) - (group_penalty * 0.85) - (cdr_penalty * 0.9) - temp_penalty)),
+        1,
+    )
+    acc_step2 = round(
+        max(5.0, min(99.0, 98.3 - (raw_noise_rate * 0.55 * 0.70 * 0.75) - (group_penalty * 0.75) - (cdr_penalty * 0.8) - temp_penalty)),
+        1,
+    )
+    acc_step3 = round(
+        max(5.0, min(99.5, 98.5 - (raw_noise_rate * 0.55 * 0.70 * 0.45 * 0.75) - (group_penalty * 0.6) - (cdr_penalty * 0.7) - temp_penalty)),
+        1,
+    )
+
+    chart_data = {
+        "정제 단계": [
+            "0. 원본 데이터(미정제)",
+            "1. 결측치 배제 후",
+            "2. 표준 용어집 매핑 후",
+            "3. 물리화학적 3D 정제 후",
+        ],
+        "AI 예측 정확도 (%)": [acc_step0, acc_step1, acc_step2, acc_step3],
+    }
+    st.bar_chart(chart_data, x="정제 단계", y="AI 예측 정확도 (%)", height=270)
+    st.caption(
+        "※ AI는 스스로 데이터의 진위를 완벽히 판별하지 못하므로, 단계별 전처리 필터링을 거칠수록 실제 생체 결합 구조와 일치하는 정확도가 상승합니다."
+    )
+
+# 7. 하단 탭 영역 (사용 방법 탭 추가)
+st.divider()
+tab_guide, tab1, tab2, tab3 = st.tabs(
+    [
+        "📖 사용 방법",
+        "🧪 전처리 알고리즘 데이터 비교표",
+        "📈 CDR 변이 복잡도에 따른 한계 곡선",
+        "📝 탐구 보고서 요약 & 결론",
+    ]
 )
 
-try:
-    with st.spinner("최신 인구 자료와 시군구 경계를 불러오는 중입니다..."):
-        population_df = load_population()
-        raw_geojson = load_geojson()
-
-        (
-            sigungu_df,
-            normalized_geojson,
-            latest_year,
-            data_warnings,
-        ) = prepare_data(
-            population_df,
-            raw_geojson,
-        )
-
-        youth_trend_df = prepare_youth_trend(population_df)
-
-    valid_df = sigungu_df.loc[sigungu_df["총인구"] > 0].copy()
-
-    national_total = valid_df["총인구"].sum()
-    national_elderly = valid_df["고령인구"].sum()
-
-    national_ageing_rate = (
-        national_elderly / national_total * 100
-        if national_total > 0
-        else np.nan
-    )
-
-    metric1, metric2, metric3, metric4 = st.columns(4)
-
-    metric1.metric("사용 연도", f"{latest_year}년")
-    metric2.metric("경계 시군구", f"{len(sigungu_df):,}개")
-    metric3.metric("인구 연결 지역", f"{len(valid_df):,}개")
-    metric4.metric("전국 고령화율", f"{national_ageing_rate:.1f}%")
-
-    st.markdown(
-        f"""
-        <div class="notice">
-            <b>계산 기준</b><br>
-            고령화율 = 65세 이상 인구 ÷ 총인구 × 100 ·
-            청소년 = 9~24세 · 청년 = 19~34세 ·
-            기준 연도 = {latest_year}년
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    for warning_message in data_warnings:
-        st.warning(warning_message)
-
-    unmatched_count = int((sigungu_df["총인구"] <= 0).sum())
-
-    if unmatched_count:
-        st.warning(
-            f"경계 자료 중 인구 자료와 연결되지 않은 지역이 "
-            f"{unmatched_count}개 있습니다. 이 지역은 지도에서 색이 표시되지 않습니다."
-        )
-
-    st.plotly_chart(
-        create_map(sigungu_df, normalized_geojson),
-        use_container_width=True,
-        config={
-            "displaylogo": False,
-            "scrollZoom": True,
-            "modeBarButtonsToRemove": [
-                "lasso2d",
-                "select2d",
-            ],
-        },
-    )
-
-    # -----------------------------------------------------
-    # 청소년 인구 변화 그래프
-    # -----------------------------------------------------
-    st.markdown("## 📈 청소년 인구 변화")
-
+with tab_guide:
     st.markdown(
         """
-        <div class="notice">
-            전국·시도·시군구 중 원하는 지역을 선택하면
-            2015년부터 최신 연도까지의 청소년 인구수와
-            전체 인구 대비 청소년 비율 변화를 확인할 수 있습니다.
-        </div>
-        """,
-        unsafe_allow_html=True,
+        ### 📖 웹앱 사용 방법 안내
+
+        이 시뮬레이터는 **항체-항원 결합의 생물학적 특성**과 **AI 구조 예측(AbAg-Fold)의 한계**, 그리고 이를 극복하기 위한 **데이터 정제의 효과**를 직관적으로 체험할 수 있도록 만들어졌습니다.
+
+        #### 1단계: 왼쪽 사이드바에서 조건 설정하기
+        * **타겟 항원 그룹 선택:** 항원 종류에 따른 데이터 구성 차이를 선택합니다. *(예: 희귀 바이러스일수록 제한된 데이터로 인해 예측 난이도가 올라갑니다.)*
+        * **다중 CDR 변이 복잡도(1~10 슬라이더):** 항체의 항원 결합 부위(CDR) 조합이 얼마나 복잡하고 변이가 많은지 조절합니다.
+        * **반응 환경 온도(°C 숫자 입력):** 30.0°C~45.0°C 사이에서 온도를 직접 입력해 보세요. 생체 적정 온도(36.5°C)에서 멀어질수록 결합 안정성에 영향을 줍니다.
+        * **원본 데이터 오류·노이즈 비율(0~80% 슬라이더):** 결측치, 잘못된 서열 등 정제 전 학습 데이터에 섞인 오류 비율을 설정합니다.
+
+        #### 2단계: 데이터 정제 단계 체크박스 켜고 끄기
+        * **1단계 결측치 배제 및 이상치 필터링:** 잘못된 값이나 누락된 데이터를 학습에서 제외합니다.
+        * **2단계 표준 용어집(대표어) 매핑 전처리:** 서로 다르게 표기된 용어를 표준 대표어로 통일합니다.
+        * **3단계 물리화학적 3D 구조 정제(AbAg-Fold):** 결합 에너지와 구조적 타당성을 검증해 신뢰할 수 있는 데이터만 남깁니다.
+        * 👉 **추천 실험:** 노이즈 비율을 높게(예: 60~70%) 둔 상태에서 체크박스를 하나씩 해제/선택해 보며 **정확도**와 **항원-항체 결합 모습**이 어떻게 달라지는지 비교해 보세요.
+
+        #### 3단계: 시각적 결과 및 상세 탭 확인하기
+        * **상단 4개 지표 카드:** 예측 정확도, 3D 구조 오차(RMSD, 낮을수록 좋음), 잔여 노이즈율, 신약 후보 도출 효율 상승률을 한눈에 봅니다.
+        * **왼쪽 항원-항체 결합 그림:** 정확도가 낮을수록 항원(왼쪽)과 항체(오른쪽)가 어긋나거나 결합이 불안정해지고, 정제를 거치면 정상 결합 상태로 가까워집니다.
+        * **오른쪽 막대그래프 & 아래 탭:** 정제 단계별 정확도 변화, CDR 복잡도에 따른 모델 한계 곡선, 탐구 결론 요약을 확인할 수 있습니다.
+        """
     )
 
-    selector1, selector2, selector3 = st.columns([1, 1.2, 1.8])
-
-    with selector1:
-        trend_level = st.selectbox(
-            "지역 범위",
-            ["전국", "시도", "시군구"],
-            key="청소년_지역범위",
-        )
-
-    selected_sido = None
-    selected_sigungu_code = None
-
-    sido_options = sorted(
-        youth_trend_df["시도"].dropna().astype(str).unique().tolist()
+with tab1:
+    st.markdown("#### 공공데이터 및 AbAg-Fold 전처리 알고리즘 적용 전/후 비교")
+    st.write(
+        "조사한 전처리 알고리즘(결측치 배제, 표준 용어집 대표어 치환, 물리화학적 검증)이 실제 학습 데이터셋을 어떻게 정제하는지 보여줍니다."
     )
+    sample_rows = [
+        {
+            "데이터 ID": "AB-101",
+            "원본 항원 표기": "SARS_CoV2_Spike",
+            "원본 결합 에너지": "NaN (결측치)",
+            "정제 후 표준 표기": "SARS-CoV-2 (대표어 매핑)" if use_standard_vocab else "SARS_CoV2_Spike (미정제)",
+            "정제 처리 결과": "학습 제외 (결측치 배제)" if use_missing_filter else "⚠️ 오류 학습됨 (AI 오작동 원인)",
+        },
+        {
+            "데이터 ID": "AB-102",
+            "원본 항원 표기": "Influenza_A_H1N1",
+            "원본 결합 에너지": "-11.4 kcal/mol",
+            "정제 후 표준 표기": "Influenza-A (대표어 매핑)" if use_standard_vocab else "Influenza_A_H1N1",
+            "정제 처리 결과": "✅ 고신뢰 3D 구조 채택" if use_physicochemical else "일반 학습 데이터 포함",
+        },
+        {
+            "데이터 ID": "AB-103",
+            "원본 항원 표기": "h1n1_virus_var",
+            "원본 결합 에너지": "+42.8 kcal/mol (비정상 반발)",
+            "정제 후 표준 표기": "Influenza-A (대표어 매핑)" if use_standard_vocab else "h1n1_virus_var",
+            "정제 처리 결과": "물리화학적 필터링으로 제거됨" if use_physicochemical else "⚠️ 비특이적 결합 구조 학습",
+        },
+    ]
+    st.dataframe(sample_rows, use_container_width=True)
 
-    with selector2:
-        if trend_level in ["시도", "시군구"]:
-            selected_sido = st.selectbox(
-                "시도 선택",
-                sido_options,
-                key="청소년_시도",
-            )
-        else:
-            st.markdown("**시도 선택**")
-            st.caption("전국을 선택했습니다.")
-
-    with selector3:
-        if trend_level == "시군구":
-            sigungu_options_df = (
-                youth_trend_df.loc[
-                    youth_trend_df["시도"] == selected_sido,
-                    ["시군구코드", "시군구"],
-                ]
-                .drop_duplicates()
-                .sort_values(["시군구", "시군구코드"])
-            )
-
-            sigungu_label_to_code = {
-                f"{row['시군구']} ({row['시군구코드']})": row["시군구코드"]
-                for _, row in sigungu_options_df.iterrows()
-            }
-
-            selected_sigungu_label = st.selectbox(
-                "시군구 선택",
-                list(sigungu_label_to_code.keys()),
-                key="청소년_시군구",
-            )
-
-            selected_sigungu_code = sigungu_label_to_code[
-                selected_sigungu_label
-            ]
-        else:
-            st.markdown("**시군구 선택**")
-            st.caption("시군구 선택이 필요하지 않습니다.")
-
-    selected_trend, selected_region_title = select_youth_trend(
-        youth_trend_df,
-        level=trend_level,
-        selected_sido=selected_sido,
-        selected_code=selected_sigungu_code,
+with tab2:
+    st.markdown("#### 다중 CDR 조합 복잡도 증가에 따른 예측 안정성 비교")
+    st.write(
+        "보고서에서 분석한 기술적 한계인 **'다중 CDR 조합에서의 개선률 변동성 및 다중 변이 모델링 한계'**를 시뮬레이션한 그래프입니다."
     )
-
-    if selected_trend.empty:
-        st.warning("선택한 지역의 연도별 청소년 인구 자료가 없습니다.")
-    else:
-        first_row = selected_trend.iloc[0]
-        last_row = selected_trend.iloc[-1]
-
-        population_change = (
-            last_row["청소년인구"] - first_row["청소년인구"]
-        )
-
-        if first_row["청소년인구"] > 0:
-            population_change_rate = (
-                population_change / first_row["청소년인구"] * 100
-            )
-        else:
-            population_change_rate = np.nan
-
-        trend_metric1, trend_metric2, trend_metric3 = st.columns(3)
-
-        trend_metric1.metric(
-            f"{int(last_row['연도'])}년 청소년 인구",
-            f"{last_row['청소년인구']:,.0f}명",
-        )
-
-        trend_metric2.metric(
-            f"{int(last_row['연도'])}년 청소년 비율",
-            f"{last_row['청소년비율']:.1f}%",
-        )
-
-        trend_metric3.metric(
-            f"{int(first_row['연도'])}년 대비 변화",
-            f"{population_change:,.0f}명",
-            (
-                f"{population_change_rate:+.1f}%"
-                if pd.notna(population_change_rate)
-                else None
-            ),
-        )
-
-        chart_left, chart_right = st.columns(2)
-
-        with chart_left:
-            st.plotly_chart(
-                create_youth_population_chart(
-                    selected_trend,
-                    selected_region_title,
-                ),
-                use_container_width=True,
-                config={"displaylogo": False},
-            )
-
-        with chart_right:
-            st.plotly_chart(
-                create_youth_rate_chart(
-                    selected_trend,
-                    selected_region_title,
-                ),
-                use_container_width=True,
-                config={"displaylogo": False},
-            )
-
-        with st.expander("연도별 청소년 인구 자료 보기"):
-            trend_table = selected_trend[
-                ["연도", "총인구", "청소년인구", "청소년비율"]
-            ].copy()
-
-            st.dataframe(
-                trend_table,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "연도": st.column_config.NumberColumn(
-                        "연도",
-                        format="%d년",
-                    ),
-                    "총인구": st.column_config.NumberColumn(
-                        "총인구",
-                        format="%d명",
-                    ),
-                    "청소년인구": st.column_config.NumberColumn(
-                        "청소년 인구",
-                        format="%d명",
-                    ),
-                    "청소년비율": st.column_config.NumberColumn(
-                        "청소년 비율",
-                        format="%.1f%%",
-                    ),
-                },
-            )
-
-    st.markdown("## 시군구 고령화율 상·하위 지역")
-
-    highest = make_rank_table(sigungu_df, ascending=False)
-    lowest = make_rank_table(sigungu_df, ascending=True)
-
-    column_config = {
-        "시도": st.column_config.TextColumn("시도"),
-        "시군구": st.column_config.TextColumn("시군구"),
-        "고령화율": st.column_config.NumberColumn(
-            "고령화율",
-            format="%.1f%%",
-        ),
-        "청소년비율": st.column_config.NumberColumn(
-            "청소년비율",
-            format="%.1f%%",
-        ),
-        "청년비율": st.column_config.NumberColumn(
-            "청년비율",
-            format="%.1f%%",
-        ),
-        "총인구": st.column_config.NumberColumn(
-            "총인구",
-            format="%d명",
-        ),
+    cdr_levels = list(range(1, 11))
+    uncleaned_curve = [
+        round(max(5.0, 95.0 - (raw_noise_rate * 0.75) - (c * 2.4) - group_penalty), 1)
+        for c in cdr_levels
+    ]
+    cleaned_curve = [
+        round(max(10.0, 98.0 - (effective_noise * 0.75) - (c * 1.4) - (group_penalty * 0.6)), 1)
+        for c in cdr_levels
+    ]
+    line_data = {
+        "CDR 변이 복잡도 (Lv.1~10)": cdr_levels,
+        "미정제 데이터 학습 모델 (%)": uncleaned_curve,
+        "정제 데이터(AbAg-Fold) 학습 모델 (%)": cleaned_curve,
     }
-
-    left, right = st.columns(2)
-
-    with left:
-        st.subheader("🔴 고령화율 높은 곳 10개")
-        st.dataframe(
-            highest,
-            use_container_width=True,
-            hide_index=False,
-            column_config=column_config,
-        )
-
-    with right:
-        st.subheader("🟡 고령화율 낮은 곳 10개")
-        st.dataframe(
-            lowest,
-            use_container_width=True,
-            hide_index=False,
-            column_config=column_config,
-        )
-
-    with st.expander("데이터 처리 방법 보기"):
-        st.markdown(
-            f"""
-1. 인구 CSV에서 가장 최신 연도인 **{latest_year}년** 자료만 선택했습니다.
-2. `코드`를 문자열로 읽고 행정동 코드의 **앞 5자리**를 시군구 코드로 사용했습니다.
-3. 같은 시군구 코드를 가진 읍·면·동의 인구를 합산했습니다.
-4. 남녀 합계인 `계_` 열만 사용해 중복 계산을 막았습니다.
-5. 고령화율은 **65세 이상 인구 ÷ 총인구 × 100**으로 계산했습니다.
-6. 인구 자료와 지도 경계는 지역 이름이 아니라 **5자리 코드**로 연결했습니다.
-7. 고령화율은 19%, 23%, 28%, 38%를 경계로 다섯 단계로 구분했습니다.
-8. 청소년 변화 그래프는 모든 연도의 9~24세 인구를 지역별로 다시 합산해 만들었습니다.
-            """
-        )
-
-except requests.RequestException as error:
-    st.error(
-        "인터넷에서 데이터를 내려받지 못했습니다. "
-        "네트워크 상태를 확인한 뒤 새로고침해 주세요."
+    st.line_chart(
+        line_data,
+        x="CDR 변이 복잡도 (Lv.1~10)",
+        y=["미정제 데이터 학습 모델 (%)", "정제 데이터(AbAg-Fold) 학습 모델 (%)"],
+        height=280,
     )
-    st.exception(error)
 
-except (
-    ValueError,
-    KeyError,
-    TypeError,
-    json.JSONDecodeError,
-) as error:
-    st.error(
-        "데이터를 처리하는 중 문제가 발생했습니다. "
-        "원본 CSV의 열 이름이나 GeoJSON 속성을 확인해 주세요."
+with tab3:
+    st.markdown(
+        """
+        ### 📌 프로젝트 탐구 결론 요약
+        1. **AI-생명과학 융합의 가치:** 항원-항체 복합체 3차원 구조를 AI(AlphaFold3 기반)로 대량 예측함으로써 신약 개발 기간과 비용을 획기적으로 단축하고 난치병 치료 가능성을 넓힐 수 있습니다.
+        2. **기술적 한계:** 실제 실험 대비 정확도 한계, 제한적인 항원 그룹 구성, 그리고 **다중 CDR 조합에서의 높은 변동성**으로 인해 다중 변이 조건에서의 모델링 안정성이 떨어집니다.
+        3. **데이터 정제의 필수성:** AI는 데이터의 진위를 스스로 완벽히 판별하지 못해 노이즈를 그대로 학습하므로, **결측치 제거·표준 용어집 매핑·물리화학적 구조 정제**를 거쳐야만 예측 정확도와 신뢰성을 극대화할 수 있습니다.
+        """
     )
-    st.exception(error)
