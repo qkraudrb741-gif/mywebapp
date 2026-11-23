@@ -1,460 +1,340 @@
+import math
+import random
 import streamlit as st
+import streamlit.components.v1 as components
 
-# -------------------------------------------------
-# 기본 설정
-# -------------------------------------------------
+# 1. 페이지 기본 설정
 st.set_page_config(
-    page_title="콩닥콩닥 MBTI 직업 추천소",
-    page_icon="💖",
-    layout="centered",
+    page_title="AbAg-Fold AI 구조 예측 & 데이터 정제 시뮬레이터",
+    page_icon="🧬",
+    layout="wide",
 )
 
-# -------------------------------------------------
-# MBTI별 데이터
-# -------------------------------------------------
-MBTI_DATA = {
-    "ISTJ": {
-        "nickname": "꼼꼼한 계획 요정",
-        "emoji": "📚",
-        "description": "책임감이 강하고 체계적으로 일을 처리하는 현실적인 유형이에요.",
-        "strengths": ["책임감", "정확성", "계획성"],
-        "jobs": [
-            ("회계사", "숫자와 자료를 꼼꼼하게 분석하는 능력을 살릴 수 있어요.", "🧾"),
-            ("공무원", "정해진 절차에 따라 안정적으로 업무를 수행하는 데 잘 맞아요.", "🏛️"),
-            ("데이터 분석가", "복잡한 데이터를 정확하게 정리하고 의미를 찾을 수 있어요.", "📊"),
-            ("품질관리 전문가", "작은 오류도 놓치지 않는 세심함이 큰 장점이 돼요.", "🔍"),
-        ],
-    },
-    "ISFJ": {
-        "nickname": "따뜻한 배려 요정",
-        "emoji": "🧸",
-        "description": "다른 사람을 세심하게 살피고 맡은 일을 성실하게 해내는 유형이에요.",
-        "strengths": ["배려심", "성실함", "관찰력"],
-        "jobs": [
-            ("간호사", "사람의 상태를 세심히 살피고 따뜻하게 돌볼 수 있어요.", "🩺"),
-            ("초등학교 교사", "학생의 성장을 차분하고 다정하게 도울 수 있어요.", "🍎"),
-            ("사회복지사", "도움이 필요한 사람에게 현실적인 지원을 제공할 수 있어요.", "🤝"),
-            ("사서", "조용하고 체계적인 환경에서 정보와 사람을 연결할 수 있어요.", "📖"),
-        ],
-    },
-    "INFJ": {
-        "nickname": "마음 읽는 별빛 요정",
-        "emoji": "🌙",
-        "description": "사람의 마음과 가능성을 깊이 이해하고 의미 있는 변화를 꿈꾸는 유형이에요.",
-        "strengths": ["통찰력", "공감 능력", "창의성"],
-        "jobs": [
-            ("상담심리사", "사람의 감정을 깊이 이해하고 성장을 도울 수 있어요.", "💬"),
-            ("작가", "풍부한 생각과 감정을 글로 섬세하게 표현할 수 있어요.", "✍️"),
-            ("UX 리서처", "사용자의 숨은 필요를 발견하고 더 나은 경험을 설계해요.", "🔎"),
-            ("교육 기획자", "사람의 성장을 돕는 의미 있는 교육을 설계할 수 있어요.", "🎓"),
-        ],
-    },
-    "INTJ": {
-        "nickname": "미래 설계 천재 고양이",
-        "emoji": "🐈‍⬛",
-        "description": "복잡한 문제의 구조를 파악하고 장기적인 전략을 세우는 유형이에요.",
-        "strengths": ["전략적 사고", "독립성", "문제 해결력"],
-        "jobs": [
-            ("소프트웨어 개발자", "논리적으로 시스템을 설계하고 문제를 해결할 수 있어요.", "💻"),
-            ("연구원", "한 분야를 깊이 탐구하며 새로운 지식을 만들 수 있어요.", "🔬"),
-            ("정보보안 전문가", "위험을 미리 예측하고 체계적인 방어 전략을 세워요.", "🛡️"),
-            ("전략 컨설턴트", "복잡한 상황을 분석해 장기적인 해결책을 제시할 수 있어요.", "♟️"),
-        ],
-    },
-    "ISTP": {
-        "nickname": "척척 해결 발명 요정",
-        "emoji": "🛠️",
-        "description": "도구와 원리를 빠르게 이해하고 실제 문제를 능숙하게 해결하는 유형이에요.",
-        "strengths": ["실용성", "적응력", "분석력"],
-        "jobs": [
-            ("로봇 엔지니어", "기계와 프로그램을 직접 다루며 새로운 장치를 만들 수 있어요.", "🤖"),
-            ("항공 정비사", "정밀한 장비의 문제를 빠르게 찾아 해결할 수 있어요.", "✈️"),
-            ("응급구조사", "긴박한 상황에서도 침착하게 판단하고 행동할 수 있어요.", "🚑"),
-            ("게임 개발자", "논리와 기술을 활용해 상호작용하는 세계를 만들 수 있어요.", "🎮"),
-        ],
-    },
-    "ISFP": {
-        "nickname": "말랑말랑 감성 요정",
-        "emoji": "🎨",
-        "description": "자신만의 감각이 뚜렷하고 사람과 세상을 따뜻하게 바라보는 유형이에요.",
-        "strengths": ["감수성", "유연성", "미적 감각"],
-        "jobs": [
-            ("그래픽 디자이너", "색과 형태를 활용해 자신만의 감성을 표현할 수 있어요.", "🖌️"),
-            ("반려동물 전문가", "생명을 다정하고 세심하게 돌보는 강점을 살릴 수 있어요.", "🐶"),
-            ("플로리스트", "자연과 색감을 활용해 아름다운 공간을 만들 수 있어요.", "🌷"),
-            ("사진작가", "순간의 분위기와 감정을 섬세하게 포착할 수 있어요.", "📷"),
-        ],
-    },
-    "INFP": {
-        "nickname": "꿈꾸는 구름 요정",
-        "emoji": "☁️",
-        "description": "풍부한 상상력과 가치관을 바탕으로 자신만의 이야기를 만드는 유형이에요.",
-        "strengths": ["상상력", "공감 능력", "진정성"],
-        "jobs": [
-            ("콘텐츠 작가", "자신만의 세계관과 메시지를 이야기로 표현할 수 있어요.", "📝"),
-            ("일러스트레이터", "상상 속 장면과 감정을 그림으로 전달할 수 있어요.", "🖼️"),
-            ("상담사", "다른 사람의 이야기를 진심으로 듣고 위로할 수 있어요.", "🌿"),
-            ("브랜드 스토리텔러", "브랜드의 가치와 감성을 매력적인 이야기로 만들어요.", "💌"),
-        ],
-    },
-    "INTP": {
-        "nickname": "호기심 폭발 탐구 요정",
-        "emoji": "🧪",
-        "description": "새로운 원리를 탐구하고 논리적으로 아이디어를 발전시키는 유형이에요.",
-        "strengths": ["논리력", "호기심", "창의적 사고"],
-        "jobs": [
-            ("AI 연구원", "새로운 알고리즘과 기술의 가능성을 깊이 탐구할 수 있어요.", "🧠"),
-            ("데이터 과학자", "데이터 속 규칙을 발견하고 새로운 가치를 만들 수 있어요.", "📈"),
-            ("게임 시스템 기획자", "복잡한 규칙과 구조를 창의적으로 설계할 수 있어요.", "🕹️"),
-            ("대학교수", "관심 분야를 깊이 연구하고 지식을 나눌 수 있어요.", "🏫"),
-        ],
-    },
-    "ESTP": {
-        "nickname": "에너지 뿜뿜 모험 요정",
-        "emoji": "⚡",
-        "description": "빠르게 상황을 파악하고 사람들과 직접 부딪치며 성과를 만드는 유형이에요.",
-        "strengths": ["행동력", "순발력", "사교성"],
-        "jobs": [
-            ("스포츠 마케터", "활동적인 현장에서 사람들의 관심을 끌어낼 수 있어요.", "🏀"),
-            ("소방관", "위기 상황에서 신속하고 용감하게 행동할 수 있어요.", "🚒"),
-            ("영업 전문가", "사람들과 빠르게 친밀감을 만들고 기회를 발견해요.", "🤝"),
-            ("방송 리포터", "현장의 생생한 소식을 빠르고 활기차게 전달할 수 있어요.", "🎤"),
-        ],
-    },
-    "ESFP": {
-        "nickname": "반짝반짝 분위기 요정",
-        "emoji": "✨",
-        "description": "밝은 에너지와 뛰어난 표현력으로 주변 사람을 즐겁게 만드는 유형이에요.",
-        "strengths": ["표현력", "친화력", "긍정성"],
-        "jobs": [
-            ("공연 기획자", "사람들이 즐거워할 특별한 경험을 만들 수 있어요.", "🎪"),
-            ("크리에이터", "자신만의 매력과 아이디어를 콘텐츠로 표현할 수 있어요.", "📹"),
-            ("승무원", "다양한 사람을 밝고 친절하게 응대할 수 있어요.", "🛫"),
-            ("이벤트 플래너", "활기찬 분위기 속에서 행사를 멋지게 완성할 수 있어요.", "🎉"),
-        ],
-    },
-    "ENFP": {
-        "nickname": "아이디어 팡팡 햇살 요정",
-        "emoji": "🌈",
-        "description": "새로운 가능성을 발견하고 사람들에게 즐거운 영감을 주는 유형이에요.",
-        "strengths": ["창의성", "열정", "소통 능력"],
-        "jobs": [
-            ("광고 기획자", "톡톡 튀는 아이디어로 사람의 마음을 움직일 수 있어요.", "📣"),
-            ("콘텐츠 크리에이터", "다양한 관심사와 개성을 매력적인 콘텐츠로 만들어요.", "🎬"),
-            ("진로 상담사", "사람의 장점과 가능성을 발견하고 용기를 줄 수 있어요.", "🧭"),
-            ("서비스 기획자", "새로운 아이디어를 사람들에게 유용한 서비스로 발전시켜요.", "💡"),
-        ],
-    },
-    "ENTP": {
-        "nickname": "엉뚱발랄 아이디어 요정",
-        "emoji": "🚀",
-        "description": "새로운 아이디어를 빠르게 떠올리고 기존 방식에 도전하는 유형이에요.",
-        "strengths": ["창의적 문제 해결", "도전 정신", "토론 능력"],
-        "jobs": [
-            ("창업가", "새로운 아이디어를 실제 서비스나 사업으로 만들 수 있어요.", "🌱"),
-            ("제품 기획자", "사람들이 필요로 할 새로운 제품을 상상하고 설계해요.", "📱"),
-            ("변리사", "새로운 기술과 아이디어의 가치를 논리적으로 보호해요.", "⚖️"),
-            ("방송 PD", "참신한 기획으로 새로운 형식의 콘텐츠를 만들 수 있어요.", "📺"),
-        ],
-    },
-    "ESTJ": {
-        "nickname": "믿음직한 리더 요정",
-        "emoji": "👑",
-        "description": "목표와 기준을 분명히 세우고 조직을 효율적으로 이끄는 유형이에요.",
-        "strengths": ["리더십", "실행력", "조직력"],
-        "jobs": [
-            ("프로젝트 매니저", "일정과 역할을 체계적으로 관리해 목표를 완수할 수 있어요.", "📋"),
-            ("경영 관리자", "조직의 자원과 사람을 효율적으로 운영할 수 있어요.", "🏢"),
-            ("경찰", "원칙과 책임감을 바탕으로 질서와 안전을 지킬 수 있어요.", "👮"),
-            ("행정 전문가", "복잡한 업무를 체계적으로 조정하고 실행할 수 있어요.", "🗂️"),
-        ],
-    },
-    "ESFJ": {
-        "nickname": "다정다감 인기 요정",
-        "emoji": "🍰",
-        "description": "사람들과 조화롭게 어울리며 필요한 도움을 친절하게 제공하는 유형이에요.",
-        "strengths": ["협동심", "배려심", "소통 능력"],
-        "jobs": [
-            ("호텔리어", "사람들에게 세심하고 기분 좋은 서비스를 제공할 수 있어요.", "🏨"),
-            ("보건교사", "학생의 건강과 마음을 따뜻하게 돌볼 수 있어요.", "💗"),
-            ("인사 담당자", "조직 구성원과 소통하며 좋은 근무 환경을 만들 수 있어요.", "👥"),
-            ("고객 경험 매니저", "고객의 목소리를 듣고 더 좋은 서비스를 만들어요.", "🎀"),
-        ],
-    },
-    "ENFJ": {
-        "nickname": "용기를 주는 리더 요정",
-        "emoji": "🌟",
-        "description": "사람의 가능성을 발견하고 모두가 함께 성장하도록 이끄는 유형이에요.",
-        "strengths": ["리더십", "공감 능력", "설득력"],
-        "jobs": [
-            ("교사", "학생의 장점을 발견하고 성장할 수 있도록 이끌어 줄 수 있어요.", "🏫"),
-            ("HRD 전문가", "구성원의 역량을 키우는 교육과 프로그램을 설계해요.", "🌱"),
-            ("홍보 전문가", "사람과 조직의 가치를 진정성 있게 전달할 수 있어요.", "📢"),
-            ("사회적 기업가", "사람들과 협력해 사회 문제를 해결하는 일을 만들 수 있어요.", "🌍"),
-        ],
-    },
-    "ENTJ": {
-        "nickname": "당당한 목표 달성 요정",
-        "emoji": "🦁",
-        "description": "큰 목표를 세우고 전략적으로 사람과 자원을 이끄는 유형이에요.",
-        "strengths": ["결단력", "전략성", "리더십"],
-        "jobs": [
-            ("기업 경영자", "큰 방향을 설정하고 조직을 목표까지 이끌 수 있어요.", "💼"),
-            ("경영 컨설턴트", "기업의 문제를 분석하고 효과적인 전략을 제안할 수 있어요.", "📊"),
-            ("프로덕트 매니저", "기술과 사용자, 비즈니스를 연결해 제품을 성장시켜요.", "🧩"),
-            ("변호사", "논리적 사고와 설득력을 활용해 복잡한 문제를 해결해요.", "⚖️"),
-        ],
-    },
-}
-
-# -------------------------------------------------
-# 스타일
-# -------------------------------------------------
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background:
-            radial-gradient(circle at 10% 20%, rgba(255, 210, 225, 0.65), transparent 30%),
-            radial-gradient(circle at 90% 10%, rgba(218, 210, 255, 0.60), transparent 28%),
-            linear-gradient(180deg, #fff9fc 0%, #fffef8 100%);
-    }
-
-    .block-container {
-        max-width: 850px;
-        padding-top: 2rem;
-        padding-bottom: 4rem;
-    }
-
-    .hero {
-        text-align: center;
-        padding: 2.2rem 1rem 1.4rem;
-        border-radius: 28px;
-        background: rgba(255, 255, 255, 0.75);
-        border: 2px solid rgba(255, 181, 205, 0.5);
-        box-shadow: 0 12px 35px rgba(220, 130, 170, 0.13);
-        margin-bottom: 1.5rem;
-    }
-
-    .hero-title {
-        font-size: clamp(2rem, 6vw, 3.4rem);
-        font-weight: 900;
-        color: #ff5f9e;
-        margin-bottom: 0.45rem;
-        letter-spacing: -0.04em;
-    }
-
-    .hero-subtitle {
-        color: #765d69;
-        font-size: 1.05rem;
-        line-height: 1.7;
-    }
-
-    .result-box {
-        background: linear-gradient(135deg, #fff 0%, #fff2f8 100%);
-        border: 2px solid #ffc5da;
-        border-radius: 26px;
-        padding: 1.7rem;
-        margin: 1.1rem 0 1.4rem;
-        box-shadow: 0 10px 30px rgba(255, 105, 160, 0.12);
-        text-align: center;
-    }
-
-    .mbti-badge {
-        display: inline-block;
-        background: #ff77aa;
-        color: white;
-        font-weight: 900;
-        font-size: 1.05rem;
-        padding: 0.4rem 0.9rem;
-        border-radius: 999px;
-        margin-bottom: 0.65rem;
-    }
-
-    .result-name {
-        font-size: 1.75rem;
-        font-weight: 900;
-        color: #5c4350;
-        margin-bottom: 0.55rem;
-    }
-
-    .result-desc {
-        color: #775f6a;
-        line-height: 1.65;
-    }
-
-    .job-card {
-        background: rgba(255, 255, 255, 0.92);
-        border: 1.5px solid #ffd0df;
-        border-radius: 22px;
-        padding: 1.2rem 1.25rem;
-        min-height: 160px;
-        box-shadow: 0 8px 24px rgba(192, 113, 143, 0.09);
-        margin-bottom: 1rem;
-    }
-
-    .job-title {
-        font-size: 1.18rem;
-        font-weight: 900;
-        color: #d84c85;
-        margin-bottom: 0.45rem;
-    }
-
-    .job-description {
-        color: #6e5d65;
-        font-size: 0.96rem;
-        line-height: 1.58;
-    }
-
-    .strength-chip {
-        display: inline-block;
-        background: #f1e8ff;
-        color: #7454a6;
-        border-radius: 999px;
-        padding: 0.34rem 0.72rem;
-        margin: 0.2rem;
-        font-weight: 700;
-        font-size: 0.9rem;
-    }
-
-    .cheer {
-        background: #fff7d9;
-        border: 1.5px dashed #f3bd46;
-        border-radius: 20px;
-        padding: 1.1rem;
-        text-align: center;
-        color: #76571f;
-        font-weight: 700;
-        margin-top: 1.1rem;
-    }
-
-    .notice {
-        color: #8a7480;
-        font-size: 0.88rem;
-        line-height: 1.6;
-        text-align: center;
-        padding-top: 1rem;
-    }
-
-    div[data-baseweb="select"] > div {
-        border-radius: 16px;
-        border-color: #ffb6ce;
-        background: white;
-    }
-
-    .stButton > button {
-        width: 100%;
-        border: none;
-        border-radius: 16px;
-        background: linear-gradient(90deg, #ff78aa, #a886f7);
-        color: white;
-        font-weight: 900;
-        font-size: 1.05rem;
-        padding: 0.75rem 1rem;
-        box-shadow: 0 8px 22px rgba(210, 102, 160, 0.22);
-        transition: 0.2s ease;
-    }
-
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        color: white;
-        border: none;
-    }
-
-    h2, h3 {
-        color: #5f4854;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
+# 2. 상단 헤더 (보고서 프로젝트 정보 반영)
+st.title("🧬 항체-항원 결합 AI 구조 예측 및 데이터 정제 시뮬레이터")
+st.caption(
+    "거제상문고등학교 2026학년도 교과심화탐구 프로젝트 | 팀 '항원과 항체' (20527 정시연, 20708 박준영)"
+)
+st.info(
+    "💡 **탐구 핵심:** AlphaFold3 기반 항체 설계(AbAg-Fold)에서 **데이터 정제(결측치 처리, 표준 용어 매핑, 물리화학적 필터링)**가 "
+    "AI의 결합 구조 예측 정확도와 신뢰성을 어떻게 극대화하는지 직접 변수를 조절하며 확인해 보세요."
 )
 
-# -------------------------------------------------
-# 화면
-# -------------------------------------------------
-st.markdown(
-    """
-    <div class="hero">
-        <div style="font-size: 2.4rem;">💗 🐰 ✨</div>
-        <div class="hero-title">콩닥콩닥 MBTI 직업 추천소</div>
-        <div class="hero-subtitle">
-            나의 MBTI를 선택하면<br>
-            성격의 장점을 살릴 수 있는 직업을 사랑스럽게 추천해 드려요!
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
+# 3. 사이드바: 시뮬레이션 변수 제어 (슬라이더 & 수치 입력)
+st.sidebar.header("⚙️ 시뮬레이션 변수 조절")
+
+st.sidebar.subheader("1️⃣ 생명과학적 조건 (항원-항체 특성)")
+antigen_type = st.sidebar.selectbox(
+    "타겟 항원 그룹 선택",
+    [
+        "A형 인플루엔자 (표준 변이)",
+        "SARS-CoV-2 (고변이 스파이크)",
+        "희귀 바이러스 (제한적 데이터 그룹)",
+    ],
+    help="보고서 내용: 항원 그룹 구성이 제한적일수록 AI 모델링의 난이도가 상승합니다.",
 )
 
-st.markdown("### 🌸 나의 MBTI는?")
-selected_mbti = st.selectbox(
-    "MBTI 선택",
-    options=list(MBTI_DATA.keys()),
-    index=None,
-    placeholder="MBTI를 골라 주세요 💕",
-    label_visibility="collapsed",
+cdr_complexity = st.sidebar.slider(
+    "다중 CDR(상보성 결정 부위) 변이 복잡도",
+    min_value=1,
+    max_value=10,
+    value=5,
+    help="수치가 높을수록 다중 CDR 조합으로 인해 결합 구조 예측 변동성이 커집니다.",
 )
 
-show_result = st.button("내게 어울리는 직업 찾기 💫")
+temperature = st.sidebar.number_input(
+    "반응 환경 온도 (°C)",
+    min_value=30.0,
+    max_value=45.0,
+    value=36.5,
+    step=0.5,
+    help="생체 적정 온도(36.5°C)에서 벗어날수록 물리화학적 결합 안정성이 떨어집니다.",
+)
 
-if show_result:
-    if selected_mbti is None:
-        st.warning("먼저 MBTI를 선택해 주세요! 🐣")
+st.sidebar.divider()
+st.sidebar.subheader("2️⃣ AI 학습 데이터 오염도 (노이즈)")
+raw_noise_rate = st.sidebar.slider(
+    "원본 데이터 오류·노이즈 비율 (%)",
+    min_value=0,
+    max_value=80,
+    value=45,
+    step=5,
+    help="결측치, 오기입된 아미노산 서열, 비정상 결합 구조 등 정제 전 데이터 오류 비율",
+)
+
+st.sidebar.divider()
+st.sidebar.subheader("3️⃣ 데이터 정제 알고리즘 적용 (해결책)")
+use_missing_filter = st.sidebar.checkbox(
+    "✅ 1단계: 결측치 배제 및 이상치 필터링",
+    value=True,
+    help="오류 데이터를 단순 학습하지 않도록 결측치와 노이즈를 제거합니다.",
+)
+use_standard_vocab = st.sidebar.checkbox(
+    "✅ 2단계: 표준 용어집(대표어) 매핑 전처리",
+    value=True,
+    help="서로 다르게 표기된 아미노산/항원 명칭을 대표어로 통일합니다.",
+)
+use_physicochemical = st.sidebar.checkbox(
+    "✅ 3단계: 물리화학적 3D 구조 정제 (AbAg-Fold)",
+    value=False,
+    help="생체 내 실제 결합 에너지와 입체 장애를 검증하여 신뢰도 높은 구조만 선별합니다.",
+)
+
+# 4. 핵심 시뮬레이션 연산 로직 (순수 Python 수학 연산)
+# 항원 그룹별 기본 난이도 페널티
+group_penalty = {
+    "A형 인플루엔자 (표준 변이)": 2.0,
+    "SARS-CoV-2 (고변이 스파이크)": 8.0,
+    "희귀 바이러스 (제한적 데이터 그룹)": 14.0,
+}[antigen_type]
+
+# 온도 편차 페널티 (36.5도 기준)
+temp_penalty = abs(temperature - 36.5) * 2.2
+
+# 다중 CDR 복잡도 페널티
+cdr_penalty = cdr_complexity * 1.8
+
+# 데이터 정제 효과 계산
+effective_noise = float(raw_noise_rate)
+if use_missing_filter:
+    effective_noise *= 0.55  # 결측치 제거로 노이즈 45% 감소
+if use_standard_vocab:
+    effective_noise *= 0.70  # 표준 용어집 매핑으로 추가 30% 감소
+if use_physicochemical:
+    effective_noise *= 0.45  # 물리화학적 정제로 추가 55% 감소
+
+# 최종 AI 결합 구조 예측 정확도 (%)
+raw_accuracy = max(
+    5.0,
+    min(99.2, 98.0 - (raw_noise_rate * 0.75) - group_penalty - cdr_penalty - temp_penalty),
+)
+cleaned_accuracy = max(
+    8.0,
+    min(99.5, 98.5 - (effective_noise * 0.75) - (group_penalty * 0.6) - (cdr_penalty * 0.7) - temp_penalty),
+)
+
+# 구조 오차율 (RMSD, Å 단위 - 낮을수록 정밀함)
+rmsd_score = round(0.8 + (100 - cleaned_accuracy) * 0.065, 2)
+
+# 신약 개발 비용/기간 단축 효율 (%)
+efficiency_gain = round(max(0.0, (cleaned_accuracy - 40) * 1.15), 1)
+
+# 5. 상단 핵심 지표 카드 (KPI)
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric(
+        label="🎯 AI 결합 구조 예측 정확도",
+        value=f"{cleaned_accuracy:.1f}%",
+        delta=f"{cleaned_accuracy - raw_accuracy:+.1f}%p (정제 전 대비)",
+    )
+with col2:
+    st.metric(
+        label="📐 3D 구조 예측 오차 (RMSD)",
+        value=f"{rmsd_score} Å",
+        delta="2.0Å 이하 고신뢰" if rmsd_score <= 2.0 else "결합 오차 주의",
+        delta_color="normal" if rmsd_score <= 2.0 else "inverse",
+    )
+with col3:
+    st.metric(
+        label="🧹 잔여 데이터 노이즈율",
+        value=f"{effective_noise:.1f}%",
+        delta=f"-{raw_noise_rate - effective_noise:.1f}%p 제거됨",
+        delta_color="inverse",
+    )
+with col4:
+    st.metric(
+        label="💊 신약 후보 도출 효율 상승",
+        value=f"+{efficiency_gain}%",
+        delta="기간·비용 단축 효과",
+    )
+
+st.divider()
+
+# 6. 메인 시각화 영역 (좌: 항원-항체 2D 구조 결합 시뮬레이션 SVG / 우: 정제 단계별 정확도 그래프)
+left_col, right_col = st.columns([1.15, 1])
+
+with left_col:
+    st.subheader("🔬 항원-항체 결합 구조 시각화 (실시간 시뮬레이션)")
+
+    # 정확도에 따른 항체 Y자 팔의 결합 간격 및 색상 계산
+    # 정확도가 100%에 가까울수록 gap이 0이 되어 항원(원형/돌기)에 딱 들어맞음
+    gap = int((100 - cleaned_accuracy) * 0.65)
+    angle_error = int((100 - cleaned_accuracy) * 0.28)
+
+    if cleaned_accuracy >= 80:
+        status_text = "✅ 정상 특이적 결합 (고신뢰 항체 설계 성공)"
+        status_color = "#16a34a"
+        antibody_color = "#2563eb"
+    elif cleaned_accuracy >= 55:
+        status_text = "⚠️ 부분 결합 / 다중 CDR 변동성 오차 발생"
+        status_color = "#d97706"
+        antibody_color = "#f59e0b"
     else:
-        data = MBTI_DATA[selected_mbti]
+        status_text = "❌ 결합 실패 / 비특이적 오작동 (노이즈 학습 부작용)"
+        status_color = "#dc2626"
+        antibody_color = "#ef4444"
 
-        st.balloons()
+    # 외부 라이브러리 없이 순수 HTML/SVG로 항원-항체 결합 애니메이션/도식 렌더링
+    svg_html = f"""
+    <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #f8fafc; text-align: center;">
+        <div style="font-weight: 700; font-size: 16px; color: {status_color}; margin-bottom: 8px;">
+            {status_text}
+        </div>
+        <svg width="100%" height="290" viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg">
+            <!-- 배경 격자 -->
+            <defs>
+                <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
+                    <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+                </pattern>
+            </defs>
+            <rect width="500" height="290" fill="url(#grid)" rx="8"/>
 
-        st.markdown(
-            f"""
-            <div class="result-box">
-                <div class="mbti-badge">{selected_mbti}</div>
-                <div style="font-size: 3rem;">{data["emoji"]}</div>
-                <div class="result-name">{data["nickname"]}</div>
-                <div class="result-desc">{data["description"]}</div>
-                <div style="margin-top: 0.9rem;">
-                    {''.join(f'<span class="strength-chip">#{strength}</span>' for strength in data["strengths"])}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            <!-- 항원 (Antigen - 왼쪽에서 접근) -->
+            <g transform="translate({145 - gap//2}, 145)">
+                <circle cx="0" cy="0" r="52" fill="#fee2e2" stroke="#ef4444" stroke-width="3"/>
+                <!-- 항원 결정기 (Epitope 돌기) -->
+                <polygon points="48,-18 76,0 48,18" fill="#ef4444"/>
+                <circle cx="-18" cy="-48" r="10" fill="#f87171"/>
+                <circle cx="-18" cy="48" r="10" fill="#f87171"/>
+                <text x="0" y="5" text-anchor="middle" font-size="14" font-weight="bold" fill="#991b1b">항원 (Antigen)</text>
+                <text x="0" y="22" text-anchor="middle" font-size="10" fill="#b91c1c">에피토프(항원결정기)</text>
+            </g>
 
-        st.markdown("### 🎀 이런 직업과 잘 어울려요")
+            <!-- 결합 영역 하이라이트 (정확도가 높을수록 초록빛 파동 표시) -->
+            <circle cx="235" cy="145" r="{max(8, 35 - gap//2)}" fill="{status_color}" opacity="{0.15 if cleaned_accuracy < 80 else 0.35}"/>
 
-        jobs = data["jobs"]
-        for start in range(0, len(jobs), 2):
-            columns = st.columns(2)
-            for column, job in zip(columns, jobs[start:start + 2]):
-                title, reason, icon = job
-                with column:
-                    st.markdown(
-                        f"""
-                        <div class="job-card">
-                            <div style="font-size: 2rem;">{icon}</div>
-                            <div class="job-title">{title}</div>
-                            <div class="job-description">{reason}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+            <!-- 항체 (Antibody - 오른쪽 Y자 구조, 오차에 따라 회전/이격) -->
+            <g transform="translate({320 + gap//2}, 145) rotate({angle_error})">
+                <!-- 항체 줄기 (Fc 영역) -->
+                <rect x="10" y="-14" width="85" height="11" rx="5" fill="{antibody_color}"/>
+                <rect x="10" y="3" width="85" height="11" rx="5" fill="{antibody_color}"/>
+                <!-- 항체 위쪽 팔 (Fab - CDR 부위) -->
+                <g transform="rotate(-32)">
+                    <rect x="-65" y="-12" width="75" height="11" rx="5" fill="{antibody_color}"/>
+                    <!-- 파라토프(항원 결합 부위 홈) -->
+                    <polygon points="-65,-12 -82,-18 -72,-6 -82,0 -65,-1" fill="#1d4ed8"/>
+                </g>
+                <!-- 항체 아래쪽 팔 (Fab - CDR 부위) -->
+                <g transform="rotate(32)">
+                    <rect x="-65" y="1" width="75" height="11" rx="5" fill="{antibody_color}"/>
+                    <polygon points="-65,1 -82,0 -72,6 -82,18 -65,12" fill="#1d4ed8"/>
+                </g>
+                <text x="52" y="-24" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e3a8a">항체 (Antibody)</text>
+                <text x="-35" y="-48" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">CDR 결합 부위</text>
+            </g>
 
-        st.markdown(
-            f"""
-            <div class="cheer">
-                🌷 {selected_mbti}의 장점은 하나의 정답이 아니라 특별한 가능성이에요.<br>
-                관심 있는 분야를 직접 경험하며 나만의 꿈을 찾아보세요!
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-st.markdown(
-    """
-    <div class="notice">
-        ※ MBTI 결과는 진로를 결정하는 절대적인 기준이 아니에요.<br>
-        흥미, 적성, 가치관, 경험을 함께 고려하는 진로 탐색 자료로 활용해 주세요.
+            <!-- 하단 상태 바 -->
+            <text x="250" y="272" text-anchor="middle" font-size="12" fill="#475569">
+                결합 간격 오차: {gap}px | CDR 변이 복잡도: Lv.{cdr_complexity} | 잔여 노이즈: {effective_noise:.1f}%
+            </text>
+        </svg>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
+    components.html(svg_html, height=345)
+
+with right_col:
+    st.subheader("📊 데이터 정제 단계별 AI 예측 정확도 비교")
+
+    # 단계별 정확도 시뮬레이션 데이터 생성 (Streamlit 내장 bar_chart 사용)
+    acc_step0 = round(
+        max(5.0, min(99.0, 98.0 - (raw_noise_rate * 0.75) - group_penalty - cdr_penalty - temp_penalty)),
+        1,
+    )
+    acc_step1 = round(
+        max(5.0, min(99.0, 98.2 - (raw_noise_rate * 0.55 * 0.75) - (group_penalty * 0.85) - (cdr_penalty * 0.9) - temp_penalty)),
+        1,
+    )
+    acc_step2 = round(
+        max(5.0, min(99.0, 98.3 - (raw_noise_rate * 0.55 * 0.70 * 0.75) - (group_penalty * 0.75) - (cdr_penalty * 0.8) - temp_penalty)),
+        1,
+    )
+    acc_step3 = round(
+        max(5.0, min(99.5, 98.5 - (raw_noise_rate * 0.55 * 0.70 * 0.45 * 0.75) - (group_penalty * 0.6) - (cdr_penalty * 0.7) - temp_penalty)),
+        1,
+    )
+
+    chart_data = {
+        "정제 단계": [
+            "0. 원본 데이터(미정제)",
+            "1. 결측치 배제 후",
+            "2. 표준 용어집 매핑 후",
+            "3. 물리화학적 3D 정제 후",
+        ],
+        "AI 예측 정확도 (%)": [acc_step0, acc_step1, acc_step2, acc_step3],
+    }
+    st.bar_chart(chart_data, x="정제 단계", y="AI 예측 정확도 (%)", height=270)
+    st.caption(
+        "※ AI는 스스로 데이터의 진위를 완벽히 판별하지 못하므로, 단계별 전처리 필터링을 거칠수록 실제 생체 결합 구조와 일치하는 정확도가 상승합니다."
+    )
+
+# 7. 하단 탐구 분석 리포트 및 데이터 샘플 비교 탭
+st.divider()
+tab1, tab2, tab3 = st.tabs(
+    ["🧪 전처리 알고리즘 데이터 비교표", "📈 CDR 변이 복잡도에 따른 한계 곡선", "📝 탐구 보고서 요약 & 결론"]
 )
+
+with tab1:
+    st.markdown("#### 공공데이터 및 AbAg-Fold 전처리 알고리즘 적용 전/후 비교")
+    st.write(
+        "조사한 전처리 알고리즘(결측치 배제, 표준 용어집 대표어 치환, 물리화학적 검증)이 실제 학습 데이터셋을 어떻게 정제하는지 보여줍니다."
+    )
+    sample_rows = [
+        {
+            "데이터 ID": "AB-101",
+            "원본 항원 표기": "SARS_CoV2_Spike",
+            "원본 결합 에너지": "NaN (결측치)",
+            "정제 후 표준 표기": "SARS-CoV-2 (대표어 매핑)" if use_standard_vocab else "SARS_CoV2_Spike (미정제)",
+            "정제 처리 결과": "학습 제외 (결측치 배제)" if use_missing_filter else "⚠️ 오류 학습됨 (AI 오작동 원인)",
+        },
+        {
+            "데이터 ID": "AB-102",
+            "원본 항원 표기": "Influenza_A_H1N1",
+            "원본 결합 에너지": "-11.4 kcal/mol",
+            "정제 후 표준 표기": "Influenza-A (대표어 매핑)" if use_standard_vocab else "Influenza_A_H1N1",
+            "정제 처리 결과": "✅ 고신뢰 3D 구조 채택" if use_physicochemical else "일반 학습 데이터 포함",
+        },
+        {
+            "데이터 ID": "AB-103",
+            "원본 항원 표기": "h1n1_virus_var",
+            "원본 결합 에너지": "+42.8 kcal/mol (비정상 반발)",
+            "정제 후 표준 표기": "Influenza-A (대표어 매핑)" if use_standard_vocab else "h1n1_virus_var",
+            "정제 처리 결과": "물리화학적 필터링으로 제거됨" if use_physicochemical else "⚠️ 비특이적 결합 구조 학습",
+        },
+    ]
+    st.dataframe(sample_rows, use_container_width=True)
+
+with tab2:
+    st.markdown("#### 다중 CDR 조합 복잡도 증가에 따른 예측 안정성 비교")
+    st.write(
+        "보고서에서 분석한 기술적 한계인 **'다중 CDR 조합에서의 개선률 변동성 및 다중 변이 모델링 한계'**를 시뮬레이션한 그래프입니다."
+    )
+    cdr_levels = list(range(1, 11))
+    uncleaned_curve = [
+        round(max(5.0, 95.0 - (raw_noise_rate * 0.75) - (c * 2.4) - group_penalty), 1)
+        for c in cdr_levels
+    ]
+    cleaned_curve = [
+        round(max(10.0, 98.0 - (effective_noise * 0.75) - (c * 1.4) - (group_penalty * 0.6)), 1)
+        for c in cdr_levels
+    ]
+    line_data = {
+        "CDR 변이 복잡도 (Lv.1~10)": cdr_levels,
+        "미정제 데이터 학습 모델 (%)": uncleaned_curve,
+        "정제 데이터(AbAg-Fold) 학습 모델 (%)": cleaned_curve,
+    }
+    st.line_chart(
+        line_data,
+        x="CDR 변이 복잡도 (Lv.1~10)",
+        y=["미정제 데이터 학습 모델 (%)", "정제 데이터(AbAg-Fold) 학습 모델 (%)"],
+        height=280,
+    )
+
+with tab3:
+    st.markdown(
+        """
+        ### 📌 프로젝트 탐구 결론 요약
+        1. **AI-생명과학 융합의 가치:** 항원-항체 복합체 3차원 구조를 AI(AlphaFold3 기반)로 대량 예측함으로써 신약 개발 기간과 비용을 획기적으로 단축하고 난치병 치료 가능성을 넓힐 수 있습니다.
+        2. **기술적 한계:** 실제 실험 대비 정확도 한계, 제한적인 항원 그룹 구성, 그리고 **다중 CDR 조합에서의 높은 변동성**으로 인해 다중 변이 조건에서의 모델링 안정성이 떨어집니다.
+        3. **데이터 정제의 필수성:** AI는 데이터의 진위를 스스로 완벽히 판별하지 못해 노이즈를 그대로 학습하므로, **결측치 제거·표준 용어집 매핑·물리화학적 구조 정제**를 거쳐야만 예측 정확도와 신뢰성을 극대화할 수 있습니다.
+        """
+    )
